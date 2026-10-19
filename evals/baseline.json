@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "started": "2026-10-17 20:28",
+    "model": "openai:gpt-4.1-mini",
+    "search": "ddgs",
+    "trials": 1,
+    "cases": 12,
+    "judge": "gpt-4.1-mini",
+    "modes": [
+      "agentic",
+      "pipeline"
+    ]
+  },
+  "summary": {
+    "agentic": {
+      "runs": 12,
+      "cases": 12,
+      "pass_rate": 0.917,
+      "cases_always_pass": 11,
+      "flaky_cases": [],
+      "approved_first_try": 1,
+      "coverage": 0.977,
+      "citations_ok": 1,
+      "grounding": 0.77,
+      "uncited_claims": 8.909,
+      "abstain_rate": 0,
+      "faithfulness": 5,
+      "completeness": 4.917,
+      "citation_quality": 5,
+      "model_calls": 5.75,
+      "searches": 1.333,
+      "pages_read": 2.417,
+      "stopped_early": 0,
+      "crashes": 0,
+      "cost_total": 0.0656,
+      "cost_mean": 0.00546,
+      "cost_p95": 0.006388,
+      "latency_mean_s": 17.275,
+      "latency_p95_s": 23.9
+    },
+    "pipeline": {
+      "runs": 12,
+      "cases": 12,
+      "pass_rate": 0.833,
+      "cases_always_pass": 10,
+      "flaky_cases": [],
+      "approved_first_try": 0.909,
+      "coverage": 0.818,
+      "citations_ok": 0.909,
+      "grounding": 0.726,
+      "uncited_claims": 7.909,
+      "abstain_rate": 0,
+      "faithfulness": 5,
+      "completeness": 5,
+      "citation_quality": 5,
+      "model_calls": 2.833,
+      "searches": 1.083,
+      "pages_read": 2.917,
+      "stopped_early": 0,
+      "crashes": 0,
+      "cost_total": 0.0555,
+      "cost_mean": 0.00462,
+      "cost_p95": 0.005427,
+      "latency_mean_s": 14.858,
+      "latency_p95_s": 19.2
+    }
+  }
+}

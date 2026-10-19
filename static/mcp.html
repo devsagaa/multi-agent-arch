@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Lab</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dfe3e8;
+    --text: #1d2330; --muted: #667085; --accent: #3b5bdb; --accent-soft: #e7ecff;
+    --ok: #2b8a3e; --ok-soft: #e6f4ea; --bad: #c92a2a; --bad-soft: #fdecec;
+    --warn: #b7791f; --warn-soft: #fdf3e1; --code-bg: #f4f5f8;
+    /* one colour per channel */
+    --inproc: #7a8494; --stdio: #0b7a69; --stdio-soft: #dcf0ea; --https: #6943c1; --https-soft: #ebe5f9; --net: #b7591f; --net-soft: #fbe9dc;
+    --j-key: #3b5bdb; --j-str: #2b7a3e; --j-num: #b7591f; --j-lit: #9c36b5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+      --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+      --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c;
+      --warn: #fcc419; --warn-soft: #3a3016; --code-bg: #12161d;
+      --inproc: #8b95a6; --stdio: #4cc6ae; --stdio-soft: #133a32; --https: #ac8ef2; --https-soft: #282040; --net: #ffa94d; --net-soft: #3a2616;
+      --j-key: #91a7ff; --j-str: #8ce99a; --j-num: #ffc078; --j-lit: #e599f7;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+  :not(pre) > code { background: var(--code-bg); padding: 0 4px; border-radius: 4px; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel);
+           display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { font-size: 13px; font-weight: 600; color: var(--accent); }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .muted { color: var(--muted); font-size: 12.5px; }
+
+  /* the four parties */
+  .parties { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 900px) { .parties { grid-template-columns: minmax(0, 1fr); } }
+  .proc { border: 2px dashed var(--border); border-radius: 12px; padding: 10px; position: relative; }
+  .proc > .tag { font: 600 11px/1 ui-monospace, Consolas, monospace; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .proc .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  @media (max-width: 520px) { .proc .inner { grid-template-columns: 1fr; } }
+  .who { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .who b { display: block; font-size: 14px; }
+  .who span { font-size: 12.5px; color: var(--muted); }
+  .chan { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12.5px; margin: 0 0 14px; }
+  .chan span { display: inline-flex; align-items: center; gap: 6px; }
+  .chan i { width: 26px; height: 0; border-top: 3px solid; display: inline-block; }
+
+  /* controls */
+  form.run { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  form.run input[type=text] { flex: 1 1 320px; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px;
+                              border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+  form.run label { font-size: 13px; display: inline-flex; gap: 5px; align-items: center; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--panel); color: var(--text); padding: 6px 11px; font-size: 13px; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; padding: 8px 18px; }
+  button:disabled { opacity: .6; cursor: wait; }
+
+  .controls { display: grid; gap: 10px; margin-bottom: 16px; }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--panel); }
+  .seg label { padding: 6px 12px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; position: relative; }
+  .seg label:has(input:checked) { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .ctlrow { display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: center; }
+  .ctlrow > .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 74px; }
+  .ctlrow input[type=text], .ctlrow input[type=password] { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+         background: var(--panel); color: var(--text); min-width: 0; }
+  textarea#args { flex: 1 1 320px; min-height: 64px; font: 12.5px/1.45 ui-monospace, Consolas, monospace; padding: 8px 10px; border-radius: 8px;
+         border: 1px solid var(--border); background: var(--code-bg); color: var(--text); resize: vertical; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button { font-size: 12px; padding: 4px 9px; }
+  .toolrow { display: grid; gap: 8px; }
+  [hidden] { display: none !important; }
+
+  /* main split */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .seqwrap { overflow-x: auto; }
+  svg#seq { display: block; width: 100%; min-width: 620px; height: auto; }
+  svg text { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--text); }
+  svg .lane-h { font-weight: 700; font-size: 13px; }
+  svg .lane-s { font-size: 10.5px; fill: var(--muted); }
+  svg .lifeline { stroke: var(--border); stroke-width: 2; }
+  svg .phase-bg { fill: var(--panel-2); }
+  svg .phase-t { font: 600 10px ui-monospace, Consolas, monospace; fill: var(--muted); text-transform: uppercase; }
+  svg .row { cursor: pointer; }
+  svg .row rect.hit { fill: transparent; }
+  svg .row:hover rect.hit { fill: var(--accent-soft); opacity: .5; }
+  svg .row.sel rect.hit { fill: var(--accent-soft); opacity: 1; }
+  svg .lbl { font-size: 11.5px; }
+  svg .num { font: 600 10px ui-monospace, Consolas, monospace; fill: var(--muted); }
+  svg .row:focus { outline: none; }
+  svg .row:focus-visible rect.hit { stroke: var(--accent); stroke-width: 2; }
+
+  .detail { position: sticky; top: 12px; }
+  .detail h3 { margin: 0 0 6px; font-size: 16px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .badge { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; font-size: 12px; background: var(--panel-2); }
+  .badge.stdio { color: var(--stdio); border-color: var(--stdio); background: var(--stdio-soft); }
+  .badge.https { color: var(--https); border-color: var(--https); background: var(--https-soft); }
+  .badge.net { color: var(--net); border-color: var(--net); background: var(--net-soft); }
+  .badge.mock { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+        margin: 0; overflow: auto; max-height: 56vh; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .jk { color: var(--j-key); } .js { color: var(--j-str); } .jn { color: var(--j-num); } .jl { color: var(--j-lit); }
+  .jk.hot { background: var(--warn-soft); color: var(--warn); font-weight: 700; border-radius: 3px; }
+  ul.notes { margin: 10px 0 0; padding-left: 18px; }
+  ul.notes li { margin: 3px 0; }
+  .nav { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; }
+  .answer { margin-top: 16px; }
+  .err { background: var(--bad-soft); color: var(--bad); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; }
+
+  /* takeaways */
+  .take { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .take .panel p { margin: 6px 0; font-size: 13.5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; border-top: none; }
+  .tw { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>MCP Lab: who talks to whom, byte by byte</h1>
+  <a href="/">← Inspector</a>
+  <a href="/flow">How it works</a>
+  <a href="/http">HTTP lab</a>
+  <a href="/mcp-console">MCP console (do it yourself)</a>
+  <a href="/traces">Traces</a>
+</header>
+
+<div class="wrap">
+  <p class="muted" style="font-size:13.5px;margin-top:0">
+    One question runs through a small agent loop that gets its tools from <code>mcp_server.py</code>. Every message is recorded
+    exactly as sent: JSON-RPC lines on the server's stdin/stdout and HTTPS requests to the model. Nothing is hidden behind an SDK,
+    because the lab's MCP client is hand-written JSON-RPC (<code>mcp_lab.py</code>). Click any arrow to see its raw bytes.
+  </p>
+
+  <div class="parties" aria-label="The four parties and their processes">
+    <div class="proc"><span class="tag">Your app's process (python)</span>
+      <div class="inner">
+        <div class="who"><b>App (host)</b><span>Runs the agent loop, owns the conversation, decides which tools the model sees.</span></div>
+        <div class="who"><b>MCP client</b><span>A library inside the app. Speaks JSON-RPC to the server. Never talks to the model.</span></div>
+      </div></div>
+    <div class="proc"><span class="tag">Child process (stdio) or HTTP service</span>
+      <div class="inner" style="grid-template-columns:1fr">
+        <div class="who"><b>MCP server</b><span><code>mcp_server.py</code>: FastMCP wraps <code>tools.py</code>. Doesn't know an LLM exists.</span></div>
+      </div></div>
+    <div class="proc"><span class="tag">The internet</span>
+      <div class="inner" style="grid-template-columns:1fr">
+        <div class="who"><b>Web</b><span>Search engines and web pages. Only the MCP server talks to them.</span></div>
+      </div></div>
+    <div class="proc"><span class="tag">api.openai.com</span>
+      <div class="inner" style="grid-template-columns:1fr">
+        <div class="who"><b>LLM API</b><span>Sees only the HTTPS request: messages and tool definitions. Never speaks MCP.</span></div>
+      </div></div>
+  </div>
+
+  <div class="chan" aria-label="Arrow colours">
+    <span><i style="border-color:var(--inproc);border-top-style:dashed"></i>in-process function call</span>
+    <span><i style="border-color:var(--stdio)"></i>MCP: JSON-RPC (over stdio pipes or HTTP)</span>
+    <span><i style="border-color:var(--https)"></i>HTTPS to the model API</span>
+    <span><i style="border-color:var(--net)"></i>the server's own requests to the internet (search, web pages)</span>
+  </div>
+
+  <form class="controls panel" id="form">
+    <div class="ctlrow"><span class="lbl">Mode</span>
+      <span class="seg" role="radiogroup" aria-label="Mode">
+        <label><input type="radio" name="mode" value="agent" checked> Ask the model</label>
+        <label><input type="radio" name="mode" value="tool"> Call a tool directly (no LLM)</label>
+      </span></div>
+
+    <div class="ctlrow" id="agentRow"><span class="lbl">Question</span>
+      <input type="text" id="q" value="What is the Model Context Protocol and who created it?" aria-label="Question" style="flex:1 1 320px">
+      <label><input type="checkbox" id="mock_llm" checked> mock model</label></div>
+
+    <div class="toolrow" id="toolRow" hidden>
+      <div class="ctlrow"><span class="lbl">Tool</span>
+        <input type="text" id="tool" value="web_search" list="toolnames" aria-label="Tool name" style="width:180px">
+        <datalist id="toolnames"><option value="web_search"><option value="fetch_url"></datalist>
+        <span class="presets" aria-label="Example inputs">
+          <button type="button" data-t="web_search" data-a='{"query": "langgraph checkpointer", "max_results": 3}'>search</button>
+          <button type="button" data-t="fetch_url" data-a='{"url": "https://en.wikipedia.org/wiki/JSON-RPC", "max_chars": 800}'>read a page</button>
+          <button type="button" data-t="web_search" data-a='{}'>missing query</button>
+          <button type="button" data-t="fetch_url" data-a='{"url": "http://169.254.169.254/latest/meta-data/"}'>SSRF attempt</button>
+          <button type="button" data-t="delete_files" data-a='{"path": "/"}'>unknown tool</button>
+        </span></div>
+      <div class="ctlrow"><span class="lbl">Arguments</span>
+        <textarea id="args" aria-label="Arguments as JSON" spellcheck="false">{"query": "langgraph checkpointer", "max_results": 3}</textarea></div>
+    </div>
+
+    <div class="ctlrow"><span class="lbl">Transport</span>
+      <span class="seg" role="radiogroup" aria-label="Transport">
+        <label><input type="radio" name="transport" value="stdio" checked> stdio (child process)</label>
+        <label><input type="radio" name="transport" value="http"> Streamable HTTP</label>
+      </span>
+      <label><input type="checkbox" id="mock_search" checked> mock search</label></div>
+
+    <div class="ctlrow" id="httpRow" hidden><span class="lbl">Server</span>
+      <input type="text" id="url" placeholder="empty = start a temporary server, or http://127.0.0.1:8765/mcp" style="flex:1 1 300px" aria-label="MCP server URL">
+      <input type="password" id="token" placeholder="MCP_TOKEN (for your own server)" style="width:240px" aria-label="Bearer token" autocomplete="off"></div>
+
+    <div class="ctlrow"><button class="primary" id="go" type="submit">Run flow</button>
+      <span class="muted" id="cost"></span></div>
+  </form>
+
+  <div id="errbox"></div>
+  <div class="split">
+    <div class="panel"><h2>Sequence <span class="muted" id="count"></span></h2>
+      <div class="seqwrap"><svg id="seq" role="list" aria-label="Message sequence"></svg></div>
+      <p class="muted" style="margin:8px 0 0">Tip: use ↑ ↓ to step through the messages.</p>
+    </div>
+    <div class="panel detail" id="detail"><div class="empty">Run the flow, then click a message.</div></div>
+  </div>
+
+  <div class="panel answer" id="answer" hidden></div>
+
+  <div class="take">
+    <div class="panel"><h2>Three conversations, not one</h2>
+      <div class="tw"><table>
+        <tr><th>Between</th><th>Protocol</th><th>Carries</th></tr>
+        <tr><td>App ↔ MCP client</td><td>function calls</td><td>Python objects</td></tr>
+        <tr><td>MCP client ↔ server</td><td>MCP (JSON-RPC 2.0)</td><td><code>initialize</code>, <code>tools/list</code>, <code>tools/call</code></td></tr>
+        <tr><td>App ↔ LLM</td><td>Chat Completions (HTTPS)</td><td><code>messages</code>, <code>tools</code>, <code>tool_calls</code></td></tr>
+      </table></div>
+      <p>The app is the only party in all three. That's why it's called the <b>host</b>.</p></div>
+    <div class="panel"><h2>The two ids</h2>
+      <p><b>JSON-RPC <code>id</code></b> (1, 2, 3…) pairs an MCP request with its reply, so several can be in flight at once.</p>
+      <p><b><code>tool_call_id</code></b> (<code>call_…</code>) pairs the model's tool request with the <code>role:"tool"</code> result.</p>
+      <p>The app translates between them: model call <code>call_abc</code> → MCP request <code>id: 4</code> → reply <code>id: 4</code> → tool message for <code>call_abc</code>.</p></div>
+    <div class="panel"><h2>What to look for</h2>
+      <p>Watch <code>messages</code> grow from turn to turn: the API is stateless, so the whole conversation is resent each time.</p>
+      <p><code>finish_reason</code> says <code>tool_calls</code> when the model wants tools run, and <code>stop</code> when it answers.</p>
+      <p>The last turn uses <code>tool_choice: "none"</code>: the tools stay listed, but the model must answer.</p></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const LANES = [
+  { id: "app",    x: 70,  name: "App (host)",  sub: "agent loop" },
+  { id: "client", x: 200, name: "MCP client",  sub: "same process" },
+  { id: "server", x: 330, name: "MCP server",  sub: "child process (stdio)" },
+  { id: "web",    x: 460, name: "Web",         sub: "search, pages" },
+  { id: "llm",    x: 590, name: "LLM API",     sub: "api.openai.com" },
+];
+const LX = Object.fromEntries(LANES.map(l => [l.id, l.x]));
+const HOT = new Set(["method", "id", "tool_calls", "finish_reason", "tool_call_id", "tool_choice", "inputSchema", "tools",
+                     "isError", "content", "protocolVersion", "arguments", "name", "role"]);
+let data = null, sel = 0;
+
+function channel(ev) {
+  if (ev.kind.startsWith("web")) return "net";
+  if (ev.kind.startsWith("http")) return "https";
+  if (ev.kind.startsWith("jsonrpc") || ev.kind === "process") return "stdio";
+  return "inproc";
+}
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+function highlight(raw) {
+  // Escape first, then colour JSON tokens. Works on pretty and single-line JSON, and leaves HTTP header lines alone.
+  return esc(raw).replace(/("(?:\\.|[^"\\])*")(\s*:)?|\b(-?\d+(?:\.\d+)?)\b|\b(true|false|null)\b/g, (m, str, colon, num, lit) => {
+    if (str && colon) {
+      const k = str.slice(1, -1);
+      return `<span class="jk${HOT.has(k) ? " hot" : ""}">${str}</span>${colon}`;
+    }
+    if (str) return `<span class="js">${str}</span>`;
+    if (num) return `<span class="jn">${num}</span>`;
+    return `<span class="jl">${lit}</span>`;
+  });
+}
+function svgEl(tag, attrs, text) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function clip(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+function drawSeq() {
+  const svg = $("seq"); svg.replaceChildren();
+  const evs = data.events, top = 54, rowH = 30, W = 680;
+  const H = top + evs.length * rowH + 16;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const defs = svgEl("defs");
+  for (const c of ["inproc", "stdio", "https", "net"]) {
+    const m = svgEl("marker", { id: "ah-" + c, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" });
+    m.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", style: `fill:var(--${c})` }));
+    defs.append(m);
+  }
+  svg.append(defs);
+  // phase bands
+  let start = 0;
+  evs.forEach((ev, i) => {
+    const last = i === evs.length - 1 || evs[i + 1].phase !== ev.phase;
+    if (last) {
+      const y = top + start * rowH;
+      if (phaseIndex(ev.phase) % 2 === 0)        // shade every other phase
+        svg.append(svgEl("rect", { class: "phase-bg", x: 0, y, width: W, height: (i - start + 1) * rowH }));
+      svg.append(svgEl("text", { class: "phase-t", x: W - 6, y: y + 12, "text-anchor": "end" }, ev.phase));
+      start = i + 1;
+    }
+  });
+  // lanes
+  for (const l of LANES) {
+    svg.append(svgEl("text", { class: "lane-h", x: l.x, y: 18, "text-anchor": "middle" }, l.name));
+    svg.append(svgEl("text", { class: "lane-s", x: l.x, y: 33, "text-anchor": "middle" }, l.sub));
+    svg.append(svgEl("line", { class: "lifeline", x1: l.x, y1: 42, x2: l.x, y2: H - 6 }));
+  }
+  // rows
+  evs.forEach((ev, i) => {
+    const y = top + i * rowH, mid = y + rowH / 2 + 5, c = channel(ev);
+    const g = svgEl("g", { class: "row" + (i === sel ? " sel" : ""), tabindex: 0, role: "listitem",
+                           "aria-label": `${ev.n}. ${ev.from} to ${ev.to}: ${ev.title}` });
+    g.append(svgEl("rect", { class: "hit", x: 0, y: y + 1, width: W, height: rowH - 2, rx: 6 }));
+    g.append(svgEl("text", { class: "num", x: 6, y: mid }, String(ev.n)));
+    const x1 = LX[ev.from], x2 = LX[ev.to];
+    const style = `stroke:var(--${c});stroke-width:2;fill:none` + (c === "inproc" ? ";stroke-dasharray:5 4" : "");
+    if (x1 === x2) {
+      g.append(svgEl("path", { d: `M${x1},${mid - 9} h22 v10 h-20`, style, "marker-end": `url(#ah-${c})` }));
+      g.append(svgEl("text", { class: "lbl", x: x1 + 28, y: mid - 1 }, clip(ev.title, 58)));
+    } else {
+      const dir = x2 > x1 ? 1 : -1;
+      g.append(svgEl("line", { x1: x1 + dir * 4, y1: mid, x2: x2 - dir * 4, y2: mid, style, "marker-end": `url(#ah-${c})` }));
+      const span = Math.abs(x2 - x1);
+      const label = clip(ev.title, Math.max(18, Math.floor(span / 6.2)));
+      g.append(svgEl("text", { class: "lbl", x: (x1 + x2) / 2, y: mid - 5, "text-anchor": "middle" }, label));
+    }
+    g.addEventListener("click", () => select(i));
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(i); } });
+    svg.append(g);
+  });
+}
+function phaseIndex(p) { return [...new Set(data.events.map(e => e.phase))].indexOf(p); }
+
+function select(i) {
+  sel = Math.max(0, Math.min(data.events.length - 1, i));
+  document.querySelectorAll("#seq .row").forEach((g, j) => g.classList.toggle("sel", j === sel));
+  const ev = data.events[sel], c = channel(ev);
+  const who = { app: "App", client: "MCP client", server: "MCP server", web: "Web", llm: "LLM API" };
+  const d = $("detail");
+  d.innerHTML = "";
+  const h = document.createElement("h3"); h.textContent = `${ev.n}. ${ev.title}`; d.append(h);
+  const meta = document.createElement("div"); meta.className = "meta";
+  const kindLabel = { "jsonrpc-request": "JSON-RPC request", "jsonrpc-response": "JSON-RPC response",
+    "jsonrpc-notification": "JSON-RPC notification", "http-request": "HTTP request", "http-response": "HTTP response",
+    internal: "in-process", process: "process", "web-request": "outbound request", "web-response": "inbound response" }[ev.kind] || ev.kind;
+  for (const [t, cls] of [[`${who[ev.from]} → ${who[ev.to]}`, ""], [kindLabel, c === "inproc" ? "" : c],
+                          [ev.channel, /MOCK/.test(ev.channel) ? "mock" : ""], [`t+${ev.ms} ms`, ""]]) {
+    if (!t) continue;
+    const b = document.createElement("span"); b.className = "badge " + cls; b.textContent = t; meta.append(b);
+  }
+  d.append(meta);
+  if (ev.raw) {
+    const pre = document.createElement("pre"); pre.innerHTML = highlight(ev.raw); d.append(pre);
+  }
+  if (ev.notes.length) {
+    const ul = document.createElement("ul"); ul.className = "notes";
+    for (const n of ev.notes) { const li = document.createElement("li"); li.textContent = n; ul.append(li); }
+    d.append(ul);
+  }
+  const nav = document.createElement("div"); nav.className = "nav";
+  const prev = document.createElement("button"); prev.textContent = "← Previous"; prev.disabled = sel === 0; prev.onclick = () => select(sel - 1);
+  const next = document.createElement("button"); next.textContent = "Next →"; next.disabled = sel === data.events.length - 1; next.onclick = () => select(sel + 1);
+  const pos = document.createElement("span"); pos.className = "muted"; pos.textContent = `${sel + 1} / ${data.events.length}`;
+  nav.append(prev, next, pos); d.append(nav);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!data || e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowDown") { e.preventDefault(); select(sel + 1); }
+  if (e.key === "ArrowUp") { e.preventDefault(); select(sel - 1); }
+});
+
+const val = (name) => document.querySelector(`input[name=${name}]:checked`).value;
+function syncControls() {
+  const mode = val("mode"), http = val("transport") === "http";
+  $("agentRow").hidden = mode !== "agent";
+  $("toolRow").hidden = mode !== "tool";
+  $("httpRow").hidden = !http;
+  $("go").textContent = mode === "agent" ? "Run flow" : "Call tool";
+  const parts = [];
+  if (mode === "agent") parts.push($("mock_llm").checked ? "Mock model: free." : "Real model: about $0.002 per run (3 turns, 400 output tokens max).");
+  else parts.push("No model involved: free.");
+  if (http) parts.push($("url").value.trim() ? "Using your server (it uses its own search provider)." : "A temporary HTTP server is started and stopped for this run.");
+  const ownServer = http && $("url").value.trim();
+  const warn = mode === "agent" && !$("mock_llm").checked && $("mock_search").checked && !ownServer;
+  if (warn) parts.push("⚠ Real model with MOCK search: the model only sees three canned [MOCK] results, so expect \"I couldn't find information\". Untick mock search for real results.");
+  $("cost").textContent = parts.join(" ");
+  $("cost").style.color = warn ? "var(--warn)" : "";
+}
+document.querySelectorAll("input[name=mode], input[name=transport], #mock_llm, #mock_search").forEach(el => el.addEventListener("change", syncControls));
+$("url").addEventListener("input", syncControls);
+document.querySelectorAll(".presets button").forEach(b => b.addEventListener("click", () => {
+  $("tool").value = b.dataset.t; $("args").value = b.dataset.a;
+}));
+syncControls();
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("go").disabled = true; $("go").textContent = "Running…"; $("errbox").replaceChildren();
+  try {
+    const body = { mode: val("mode"), transport: val("transport"), mock_search: $("mock_search").checked,
+                   url: $("url").value.trim(), token: $("token").value.trim() };
+    if (body.mode === "agent") Object.assign(body, { question: $("q").value, mock_llm: $("mock_llm").checked });
+    else {
+      let args;
+      try { args = JSON.parse($("args").value || "{}"); } catch (err) { throw new Error("Arguments must be valid JSON: " + err.message); }
+      if (typeof args !== "object" || Array.isArray(args) || args === null) throw new Error('Arguments must be a JSON object, e.g. {"query": "mcp"}');
+      Object.assign(body, { tool: $("tool").value.trim(), arguments: args });
+    }
+    const r = await fetch("/api/mcp-lab", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const got = await r.json();
+    if (!r.ok) throw new Error(got.error || r.statusText);
+    data = got;
+    LANES[2].sub = data.transport === "http" ? "HTTP service" : "child process (stdio)";
+    $("count").textContent = `· ${data.events.length} messages · ${data.transport} · model: ${data.model} · search: ${data.search_provider}`;
+    if (data.error) { const d = document.createElement("div"); d.className = "err"; d.textContent = "Run stopped: " + data.error; $("errbox").append(d); }
+    sel = 0; drawSeq(); select(0);
+    const a = $("answer"); a.hidden = false; a.innerHTML = data.mode === "tool" ? "<h2>Tool result</h2>" : "<h2>Final answer</h2>";
+    const p = document.createElement("p"); p.style.whiteSpace = "pre-wrap"; p.textContent = data.answer || "(none)"; a.append(p);
+  } catch (err) {
+    const d = document.createElement("div"); d.className = "err"; d.textContent = String(err); $("errbox").append(d);
+  } finally {
+    $("go").disabled = false; syncControls();
+  }
+});
+
+$("form").requestSubmit();   // start with an offline example so the page is never empty
+</script>
+</body>
+</html>

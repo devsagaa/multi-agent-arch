@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research Graph Inspector</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dfe3e8;
+    --text: #1d2330; --muted: #667085; --accent: #3b5bdb; --accent-soft: #e7ecff;
+    --ok: #2b8a3e; --ok-soft: #e6f4ea; --bad: #c92a2a; --bad-soft: #fdecec;
+    --warn: #b7791f; --warn-soft: #fdf3e1; --code-bg: #f4f5f8;
+    --n-load: #0c8599; --n-sup: #7048e8; --n-res: #1971c2; --n-rev: #e8590c;
+    --n-fin: #2b8a3e; --n-save: #0c8599; --n-term: #868e96;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+      --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+      --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c;
+      --warn: #fcc419; --warn-soft: #3a3016; --code-bg: #12161d;
+      --n-load: #3bc9db; --n-sup: #9775fa; --n-res: #4dabf7; --n-rev: #ff922b;
+      --n-fin: #69db7c; --n-save: #3bc9db; --n-term: #adb5bd;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel);
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--panel-2);
+           border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .badge.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .badge.accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+  .query { padding: 16px 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .query input[type=text] { flex: 1 1 420px; min-width: 0; padding: 10px 12px; border-radius: 8px;
+           border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: 15px; }
+  .query label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--panel); color: var(--text); padding: 8px 14px; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; padding: 10px 20px; }
+  button:disabled { opacity: .55; cursor: default; }
+
+  main { display: grid; grid-template-columns: minmax(340px, 460px) 1fr; gap: 20px; padding: 0 24px 40px; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } .left { position: static !important; } }
+  .left { position: sticky; top: 12px; align-self: start; display: flex; flex-direction: column; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .hint { color: var(--muted); font-size: 12.5px; }
+
+  /* graph */
+  svg { width: 100%; height: auto; display: block; }
+  .g-node rect { fill: var(--panel-2); stroke: var(--border); stroke-width: 1.5; transition: all .2s; }
+  .g-node text { fill: var(--text); font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+  .g-node { cursor: pointer; }
+  .g-node.visited rect { stroke: var(--c); stroke-width: 2; }
+  .g-node.active rect { fill: var(--c); stroke: var(--c); animation: pulse 1s ease-in-out infinite; }
+  .g-node.active text { fill: #fff; }
+  .g-count { font-size: 11px !important; font-weight: 700; fill: #fff !important; }
+  .g-count-bg { fill: var(--c); }
+  @keyframes pulse { 50% { opacity: .65; } }
+  .g-edge { stroke: var(--border); stroke-width: 1.8; fill: none; transition: stroke .2s; }
+  .g-edge.cond { stroke-dasharray: 5 4; }
+  .g-edge.hot { stroke: var(--accent); stroke-width: 3; }
+  .g-edge.used { stroke: var(--muted); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* timeline */
+  .timeline { display: flex; flex-direction: column; gap: 10px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 12px; }
+  .step { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--c); border-radius: 10px; overflow: hidden; }
+  .step.running { opacity: .8; }
+  .step-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; flex-wrap: wrap; }
+  .step-num { font-size: 12px; color: var(--muted); min-width: 28px; }
+  .step-node { font-weight: 700; color: var(--c); }
+  .step-action { font-weight: 500; }
+  .step-detail { color: var(--muted); font-size: 13px; flex-basis: 100%; padding-left: 38px; overflow-wrap: anywhere; }
+  .step-meta { margin-left: auto; display: flex; gap: 6px; }
+  .route { padding: 0 14px 10px 52px; font-size: 13px; color: var(--muted); }
+  .route b { color: var(--accent); }
+  .step-body { border-top: 1px solid var(--border); display: none; }
+  .step.open .step-body { display: block; }
+  .tabs { display: flex; gap: 2px; padding: 6px 10px 0; background: var(--panel-2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab { border: none; background: none; padding: 7px 12px; border-radius: 6px 6px 0 0; color: var(--muted); font-size: 13px; }
+  .tab.on { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 -2px 0 var(--accent) inset; }
+  .tab-pane { padding: 12px 14px; display: none; }
+  .tab-pane.on { display: block; }
+  .kv { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .kv td { border-top: 1px solid var(--border); padding: 6px 6px; vertical-align: top; }
+  .kv td:first-child { width: 170px; overflow-wrap: anywhere; }
+  .kv tr.read td:first-child { font-weight: 700; color: var(--accent); }
+  .kv tr.unread { opacity: .5; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; margin-left: 4px; background: var(--panel-2); color: var(--muted); font-weight: 500; }
+  .tag.append { background: var(--warn-soft); color: var(--warn); }
+  .tag.replace { background: var(--accent-soft); color: var(--accent); }
+  pre { margin: 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+        white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; }
+  .call { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .call h4 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .call h4:first-of-type { margin-top: 6px; }
+  .note { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+  .results { margin: 6px 0 0; padding-left: 20px; }
+  .results li { margin-bottom: 6px; }
+  .results a { color: var(--accent); overflow-wrap: anywhere; }
+
+  .answer { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .mem-item { border-top: 1px solid var(--border); padding: 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+  .mem-row { display: flex; gap: 6px; margin-top: 8px; }
+  .mem-row input { flex: 1; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+  .error-box { background: var(--bad-soft); color: var(--bad); padding: 10px 14px; border-radius: 8px; }
+
+  /* view switch + state flow matrix */
+  .viewbar { display: flex; gap: 4px; margin-bottom: 10px; }
+  .vtab { padding: 6px 14px; font-size: 13px; }
+  .vtab.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .sf-wrap { overflow: auto; max-height: 70vh; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+  table.sf { border-collapse: separate; border-spacing: 0; font-size: 12px; }
+  table.sf th, table.sf td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+    padding: 5px 8px; vertical-align: top; text-align: left; }
+  table.sf thead th { position: sticky; top: 0; background: var(--panel-2); z-index: 2; white-space: nowrap; }
+  table.sf thead th .sf-node { color: var(--c); font-weight: 700; display: block; font-size: 12.5px; }
+  table.sf thead th .sf-sub { color: var(--muted); font-weight: 400; font-size: 11px; }
+  table.sf tbody th { position: sticky; left: 0; background: var(--panel); z-index: 1;
+    font-family: ui-monospace, Consolas, monospace; font-weight: 600; white-space: nowrap; }
+  table.sf thead th:first-child { left: 0; z-index: 3; }
+  table.sf td { font-family: ui-monospace, Consolas, monospace; min-width: 120px; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--muted); }
+  table.sf td.chg { background: var(--warn-soft); color: var(--text); font-weight: 600; }
+  table.sf td.rd { box-shadow: inset 0 0 0 2px var(--accent); color: var(--text); }
+  table.sf td.sel { outline: 2px solid var(--text); outline-offset: -2px; }
+  .sf-legend { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 12px; }
+  .sf-legend.chg { background: var(--warn-soft); color: var(--warn); }
+  .sf-legend.rd { box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent); }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+  @media (max-width: 700px) { .ba { grid-template-columns: 1fr; } }
+  .ba h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Multi-Agent Research Graph Inspector</h1>
+  <a href="/flow" style="font-size:13px;font-weight:600;color:var(--accent)">How it works →</a>
+  <a href="/http" style="font-size:13px;font-weight:600;color:var(--accent)">HTTP lab →</a>
+  <a href="/mcp" style="font-size:13px;font-weight:600;color:var(--accent)">MCP lab →</a>
+  <a href="/mcp-console" style="font-size:13px;font-weight:600;color:var(--accent)">MCP console →</a>
+  <a href="/traces" style="font-size:13px;font-weight:600;color:var(--accent)">Traces →</a>
+  <div class="badges" id="cfg"></div>
+</header>
+
+<form class="query" id="form">
+  <input type="text" id="q" placeholder="Ask a question…"
+         value="Should a software engineer learn AWS before building production AI agents?">
+  <label><input type="checkbox" id="force_reject"> Force first review rejection</label>
+  <label title="Code picks the tool calls (search once, read top pages) instead of the model"><input type="checkbox" id="pipeline"> Fixed pipeline researcher</label>
+  <label title="Run search and fetch in the MCP server process (mcp_server.py) and call them over the Model Context Protocol"><input type="checkbox" id="mcp"> Tools via MCP</label>
+  <button class="primary" id="run" type="submit">Run</button>
+</form>
+
+<main>
+  <div class="left">
+    <section class="panel">
+      <h2>Graph</h2>
+      <svg id="graph" viewBox="0 0 640 350" role="img" aria-label="Agent graph"></svg>
+      <div class="legend">
+        <span>── fixed edge</span><span>- - conditional edge</span><span>number = times the node ran</span>
+      </div>
+    </section>
+    <section class="panel" id="summaryPanel" hidden>
+      <h2>Result</h2>
+      <div class="badges" id="summary" style="margin:0 0 10px"></div>
+      <div class="answer" id="answer"></div>
+    </section>
+    <section class="panel">
+      <h2>Long-term memory (SQLite)</h2>
+      <div id="memory" class="hint">Loading…</div>
+      <div class="mem-row">
+        <input id="memInput" placeholder="Add a preference, e.g. I prefer bullet points">
+        <button id="memAdd" type="button">Save</button>
+        <button id="memClear" type="button">Clear</button>
+      </div>
+    </section>
+  </div>
+
+  <section>
+    <div class="viewbar">
+      <button type="button" class="vtab on" data-view="steps">Steps</button>
+      <button type="button" class="vtab" data-view="flow">State flow</button>
+    </div>
+    <div class="timeline" id="timeline">
+      <div class="empty">Run a question to see each node: the state it received, what it returned,
+        the exact prompts sent to the model, and every tool call.</div>
+    </div>
+    <div id="stateflow" hidden>
+      <p class="hint" style="margin:0 0 8px">How the shared state changes as it passes from node to node.
+        Each column is the state <b>after</b> that step. <span class="sf-legend chg">changed by this node</span>
+        <span class="sf-legend rd">read by this node</span>. Click a cell for the before → after values.</p>
+      <div class="sf-wrap"><table class="sf" id="sfTable"></table></div>
+      <div class="panel" id="sfDetail" style="margin-top:12px">
+        <span class="hint">Click a cell to inspect it.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "style") n.setAttribute("style", v);
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null && v !== false) n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+    n.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return n;
+}
+const pretty = (v) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
+const short = (v, n = 90) => { const s = typeof v === "string" ? v : JSON.stringify(v); return s.length > n ? s.slice(0, n) + "…" : s; };
+
+const COLORS = { START: "--n-term", END: "--n-term", load_memory: "--n-load", supervisor: "--n-sup",
+  researcher: "--n-res", reviewer: "--n-rev", finalizer: "--n-fin", save_memory: "--n-save" };
+const colorVar = (node) => `var(${COLORS[node] || "--accent"})`;
+const APPEND_KEYS = new Set(["history", "tool_calls"]);
+let NODE_READS = {};
+
+/* ---------------- graph ---------------- */
+const NODES = {
+  START: [70, 40, 80], load_memory: [70, 145, 120], supervisor: [320, 145, 120],
+  save_memory: [565, 145, 120], END: [565, 40, 80],
+  researcher: [150, 295, 120], reviewer: [320, 295, 120], finalizer: [490, 295, 120],
+};
+const H = 40;
+const EDGES = [
+  ["START", "load_memory", false], ["load_memory", "supervisor", false],
+  ["supervisor", "researcher", true], ["researcher", "supervisor", false],
+  ["supervisor", "reviewer", true], ["reviewer", "supervisor", false],
+  ["supervisor", "finalizer", true], ["finalizer", "supervisor", false],
+  ["supervisor", "save_memory", true], ["save_memory", "END", false],
+];
+const SVGNS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs) => { const n = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+
+function edgePoints(a, b) {
+  const [ax, ay, aw] = NODES[a], [bx, by, bw] = NODES[b];
+  const pair = new Set([a, b]);
+  // supervisor <-> worker: two parallel lines, offset left (down) / right (up)
+  if (pair.has("supervisor") && ["researcher", "reviewer", "finalizer"].some(w => pair.has(w))) {
+    const down = a === "supervisor";
+    const off = down ? -9 : 9;
+    const [sx, sy] = [NODES.supervisor[0] + off, NODES.supervisor[1] + H / 2];
+    const w = down ? b : a;
+    const [wx, wy] = [NODES[w][0] + off, NODES[w][1] - H / 2];
+    return down ? [sx, sy, wx, wy] : [wx, wy, sx, sy];
+  }
+  if (ay === by) return ax < bx ? [ax + aw / 2, ay, bx - bw / 2, by] : [ax - aw / 2, ay, bx + bw / 2, by];
+  return ay < by ? [ax, ay + H / 2, bx, by - H / 2] : [ax, ay - H / 2, bx, by + H / 2];
+}
+
+function drawGraph() {
+  const svg = $("graph");
+  const defs = svgEl("defs", {});
+  for (const [id, color] of [["arr", "var(--muted)"], ["arr-hot", "var(--accent)"]]) {
+    const m = svgEl("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" });
+    m.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", style: `fill:${color}` }));
+    defs.append(m);
+  }
+  svg.append(defs);
+  for (const [a, b, cond] of EDGES) {
+    const [x1, y1, x2, y2] = edgePoints(a, b);
+    svg.append(svgEl("line", { id: `e-${a}-${b}`, class: "g-edge" + (cond ? " cond" : ""),
+      x1, y1, x2, y2, "marker-end": "url(#arr)" }));
+  }
+  for (const [name, [x, y, w]] of Object.entries(NODES)) {
+    const g = svgEl("g", { id: `n-${name}`, class: "g-node", style: `--c:${colorVar(name)}` });
+    g.append(svgEl("rect", { x: x - w / 2, y: y - H / 2, width: w, height: H, rx: name === "START" || name === "END" ? 20 : 8 }));
+    const t = svgEl("text", { x, y }); t.textContent = name; g.append(t);
+    const cb = svgEl("circle", { class: "g-count-bg", cx: x + w / 2 - 2, cy: y - H / 2 + 2, r: 9, style: "display:none" });
+    const ct = svgEl("text", { class: "g-count", x: x + w / 2 - 2, y: y - H / 2 + 3, style: "display:none" });
+    g.append(cb, ct);
+    g.addEventListener("click", () => focusNode(name));
+    svg.append(g);
+  }
+}
+
+const counts = {};
+let lastNode = null;
+function resetGraph() {
+  for (const k of Object.keys(counts)) delete counts[k];
+  lastNode = null;
+  document.querySelectorAll(".g-node").forEach(n => {
+    n.classList.remove("active", "visited");
+    n.querySelectorAll(".g-count, .g-count-bg").forEach(c => c.style.display = "none");
+  });
+  document.querySelectorAll(".g-edge").forEach(e => { e.classList.remove("hot", "used"); e.setAttribute("marker-end", "url(#arr)"); });
+}
+function traverse(from, to) {
+  document.querySelectorAll(".g-edge.hot").forEach(e => { e.classList.replace("hot", "used"); e.setAttribute("marker-end", "url(#arr)"); });
+  const e = $(`e-${from}-${to}`);
+  if (e) { e.classList.add("hot"); e.setAttribute("marker-end", "url(#arr-hot)"); }
+}
+function setActive(node) {
+  document.querySelectorAll(".g-node.active").forEach(n => n.classList.remove("active"));
+  traverse(lastNode || "START", node);
+  lastNode = node;
+  const g = $(`n-${node}`);
+  if (g) g.classList.add("active", "visited");
+}
+function finishNode(node) {
+  counts[node] = (counts[node] || 0) + 1;
+  const g = $(`n-${node}`);
+  if (!g) return;
+  g.classList.remove("active");
+  const [cb, ct] = [g.querySelector(".g-count-bg"), g.querySelector(".g-count")];
+  cb.style.display = ""; ct.style.display = ""; ct.textContent = counts[node];
+}
+
+/* ---------------- timeline ---------------- */
+function kvTable(obj, { reads = null, mergeTags = false } = {}) {
+  const keys = Object.keys(obj || {});
+  if (reads) keys.sort((a, b) => (reads.includes(b) - reads.includes(a)));
+  const t = el("table", { class: "kv" });
+  for (const k of keys) {
+    const cls = reads ? (reads.includes(k) ? "read" : "unread") : "";
+    const tag = mergeTags ? el("span", { class: "tag " + (APPEND_KEYS.has(k) ? "append" : "replace") },
+                                APPEND_KEYS.has(k) ? "appended" : "replaces") : null;
+    t.append(el("tr", { class: cls },
+      el("td", {}, el("code", {}, k), tag, reads && reads.includes(k) ? el("span", { class: "tag" }, "read") : null),
+      el("td", {}, el("pre", {}, pretty(obj[k])))));
+  }
+  return t;
+}
+
+function llmPane(calls) {
+  if (!calls.length) return el("p", { class: "note" }, "This node made no model call.");
+  return el("div", {},
+    el("p", { class: "note" }, "This is everything the model saw. It cannot read the graph state — only what the node copied into these prompts."),
+    calls.map((c, i) => el("div", { class: "call" },
+      el("div", { class: "badges", style: "margin:0" },
+        el("span", { class: "badge accent" }, `call ${i + 1}: ${c.role}`),
+        el("span", { class: "badge" }, c.model),
+        c.structured ? el("span", { class: "badge" }, "JSON schema (strict)") : null,
+        c.input_tokens !== undefined ? el("span", { class: "badge" }, `${c.input_tokens} in / ${c.output_tokens} out tokens`) : null,
+        c.attempts > 1 ? el("span", { class: "badge warn" }, `${c.attempts} attempts (retried)`) : null,
+        c.finish_reason ? el("span", { class: "badge" }, `finish_reason: ${c.finish_reason}`) : null,
+        c.kind === "chat" ? el("span", { class: "badge" }, `tool_choice: ${c.tool_choice}`) : null,
+        el("span", { class: "badge" }, `${c.duration_ms} ms`),
+        c.error ? el("span", { class: "badge bad" }, "failed") : null),
+      el("h4", {}, "System prompt"), el("pre", {}, c.system),
+      el("h4", {}, c.kind === "chat" ? "Messages after the system prompt (user, tool calls, tool results)" : "User prompt"),
+      el("pre", {}, c.user),
+      el("h4", {}, c.error ? "Error" : c.tool_calls?.length ? "Response: the model asks to run these tools" : "Response"),
+      el("pre", {}, c.error || c.response),
+      c.request ? el("details", {},
+        el("summary", {}, c.model === "mock" ? "Request body (mock: built but not sent)"
+                                            : "Exact request body: POST https://api.openai.com/v1/chat/completions"),
+        el("pre", {}, JSON.stringify(c.request, null, 2))) : null,
+      c.raw_response ? el("details", {},
+        el("summary", {}, "Raw API response"),
+        el("pre", {}, JSON.stringify(c.raw_response, null, 2))) : null)));
+}
+
+function toolPane(calls) {
+  if (!calls.length) return el("p", { class: "note" }, "This node made no tool call.");
+  return calls.map(c => el("div", { class: "call" },
+    el("div", { class: "badges", style: "margin:0" },
+      el("span", { class: "badge accent" }, c.tool),
+      el("span", { class: c.provider === "mock" ? "badge warn" : "badge" }, `provider: ${c.provider}`),
+      c.transport === "mcp" ? el("span", { class: "badge accent", title: "Executed by mcp_server.py via tools/call" }, "via MCP") : null,
+      el("span", { class: c.ok ? "badge ok" : "badge bad" },
+        !c.ok ? "failed" : c.tool === "fetch_page" ? `${(c.content || "").length} chars` : `${c.result_count} results`)),
+    el("h4", {}, c.tool === "fetch_page" ? "Input (URL)" : "Input (query)"), el("pre", {}, c.input),
+    c.content ? [el("h4", {}, "Output (extracted page text)"), el("pre", {}, c.content)] : null,
+    c.error ? [el("h4", {}, "Error"), el("pre", {}, c.error)] : null,
+    c.results.length ? [el("h4", {}, "Output"),
+      el("ol", { class: "results" }, c.results.map(r => el("li", {},
+        el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, r.title || r.url),
+        el("div", { class: "hint" }, r.snippet))))] : null));
+}
+
+function addStepCard(ev) {
+  const { step, node, input, result, llm_calls, duration_ms, error } = ev;
+  const res = result || {};
+  const hist = (res.history || [])[0] || {};
+  const tools = res.tool_calls || [];
+  const reads = NODE_READS[node] || [];
+
+  const panes = {
+    "State in": el("div", {},
+      el("p", { class: "note" }, `LangGraph passed the full shared state to this node. Highlighted keys are the ones ${node} actually reads; faded keys are available but unused.`),
+      kvTable(input, { reads })),
+    "Returned update": el("div", {},
+      el("p", { class: "note" }, "The node returns only the keys it changed. LangGraph merges them into the state: most keys are replaced; history and tool_calls are appended."),
+      error ? el("div", { class: "error-box" }, error) : kvTable(res, { mergeTags: true })),
+    [`LLM (${llm_calls.length})`]: llmPane(llm_calls),
+    [`Tools (${tools.length})`]: toolPane(tools),
+  };
+  const tabBar = el("div", { class: "tabs" });
+  const body = el("div", { class: "step-body" }, tabBar);
+  Object.entries(panes).forEach(([name, content], i) => {
+    const pane = el("div", { class: "tab-pane" + (i === 0 ? " on" : "") }, content);
+    const tab = el("button", { class: "tab" + (i === 0 ? " on" : ""), type: "button", onclick: (e) => {
+      e.stopPropagation();
+      tabBar.querySelectorAll(".tab").forEach(t => t.classList.remove("on"));
+      body.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("on"));
+      tab.classList.add("on"); pane.classList.add("on");
+    }}, name);
+    tabBar.append(tab); body.append(pane);
+  });
+
+  const card = el("div", { class: "step", id: `step-${step}`, "data-node": node, style: `--c:${colorVar(node)}` },
+    el("div", { class: "step-head", onclick: () => card.classList.toggle("open") },
+      el("span", { class: "step-num" }, `#${step}`),
+      el("span", { class: "step-node" }, node),
+      el("span", { class: "step-action" }, hist.action || ""),
+      el("span", { class: "step-meta" },
+        llm_calls.length ? el("span", { class: "badge accent" }, `LLM ×${llm_calls.length}`) : null,
+        tools.length ? el("span", { class: "badge accent" }, `tool ×${tools.length}`) : null,
+        error || res.error ? el("span", { class: "badge bad" }, "error") : null,
+        el("span", { class: "badge" }, `${duration_ms} ms`)),
+      hist.detail ? el("span", { class: "step-detail" }, hist.detail) : null),
+    res.next_step ? el("div", { class: "route" }, "conditional edge → ", el("b", {}, res.next_step),
+      res.revision_count !== undefined ? `  (revision_count set to ${res.revision_count})` : "") : null,
+    body);
+  const pending = $("pending");
+  if (pending) pending.remove();
+  $("timeline").append(card);
+}
+
+function focusNode(name) {
+  const cards = [...document.querySelectorAll(`.step[data-node="${name}"]`)];
+  if (!cards.length) return;
+  const card = cards[cards.length - 1];
+  card.classList.add("open");
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------------- state flow ---------------- */
+// Rebuilds the state after each step by applying each node's returned update exactly as
+// LangGraph's reducers do: replace by default, append for history / tool_calls.
+let flowSteps = [];   // [{step, node, input, result}]
+const SF_KEYS = ["question", "memory_context", "research_findings", "sources", "tool_calls", "review_status",
+  "review_feedback", "citation_check", "review_score", "previous_review_score", "revision_count", "next_step", "final_answer", "outcome", "error",
+  "llm_usage", "history"];
+
+function merge(before, update) {
+  const after = { ...before };
+  for (const [k, v] of Object.entries(update || {}))
+    after[k] = APPEND_KEYS.has(k) ? [...(before[k] || []), ...v] : v;
+  return after;
+}
+function cellText(k, v) {
+  if (v === undefined) return "—";
+  if (v === null) return "null";
+  if (Array.isArray(v)) {
+    const unit = { history: "entries", tool_calls: "calls", sources: "sources", memory_context: "items",
+                   llm_usage: "model calls" }[k] || "items";
+    return `[${v.length} ${unit}]`;
+  }
+  if (typeof v === "string") return v === "" ? '""' : `"${v.replace(/\s+/g, " ").slice(0, 48)}${v.length > 48 ? "…" : ""}"`;
+  return JSON.stringify(v);
+}
+function renderStateFlow() {
+  const t = $("sfTable");
+  t.replaceChildren();
+  if (!flowSteps.length) return;
+  // Column 0 = the initial state (what the first node received), then one column per step.
+  const states = [flowSteps[0].input];
+  for (const s of flowSteps) states.push(merge(states[states.length - 1], s.result));
+
+  const head = el("tr", {}, el("th", {}, "state key"),
+    el("th", { style: "--c:var(--n-term)" }, el("span", { class: "sf-node" }, "initial"), el("span", { class: "sf-sub" }, "initial_state()")));
+  flowSteps.forEach((s, i) => {
+    const sub = s.result && s.result.next_step ? `→ ${s.result.next_step}` : `step ${s.step}`;
+    head.append(el("th", { style: `--c:${colorVar(s.node)}` },
+      el("span", { class: "sf-node" }, `${i + 1}. ${s.node}`), el("span", { class: "sf-sub" }, sub)));
+  });
+  const thead = el("thead", {}, head), tbody = el("tbody", {});
+  for (const k of SF_KEYS) {
+    const tr = el("tr", {}, el("th", {}, k));
+    states.forEach((st, col) => {
+      const step = col === 0 ? null : flowSteps[col - 1];
+      const changed = step && step.result && k in step.result;
+      const read = step && (NODE_READS[step.node] || []).includes(k);
+      const td = el("td", { class: changed ? "chg" : read ? "rd" : "", title: cellText(k, st[k]) }, cellText(k, st[k]));
+      td.addEventListener("click", () => {
+        t.querySelectorAll("td.sel").forEach(c => c.classList.remove("sel"));
+        td.classList.add("sel");
+        showFlowCell(k, col, states, step);
+      });
+      tr.append(td);
+    });
+    tbody.append(tr);
+  }
+  t.append(thead, tbody);
+}
+function showFlowCell(k, col, states, step) {
+  const box = $("sfDetail");
+  const before = col === 0 ? undefined : states[col - 1][k], after = states[col][k];
+  const who = step ? `${step.node} (step ${col})` : "initial_state()";
+  let how = "Not touched by this node; carried forward unchanged.";
+  if (!step) how = "Set by initial_state() before any node runs.";
+  else if (step.result && k in step.result)
+    how = APPEND_KEYS.has(k) ? `${step.node} returned ${step.result[k].length} new item(s); LangGraph APPENDED them (operator.add reducer).`
+                             : `${step.node} returned a new value; LangGraph REPLACED the old one.`;
+  else if ((NODE_READS[step.node] || []).includes(k)) how = `${step.node} read this key to make its decision but did not change it.`;
+  box.replaceChildren(
+    el("div", {}, el("b", {}, k), " · ", who),
+    el("p", { class: "note", style: "margin:6px 0 0" }, how),
+    el("div", { class: "ba" },
+      el("div", {}, el("h4", {}, "Before"), el("pre", {}, before === undefined ? "—" : pretty(before))),
+      el("div", {}, el("h4", {}, "After"), el("pre", {}, after === undefined ? "—" : pretty(after)))));
+}
+document.querySelectorAll(".vtab").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".vtab").forEach(x => x.classList.toggle("on", x === b));
+  const flow = b.dataset.view === "flow";
+  $("timeline").hidden = flow;
+  $("stateflow").hidden = !flow;
+}));
+
+/* ---------------- run ---------------- */
+let es = null;
+function run(evt) {
+  evt.preventDefault();
+  if (es) es.close();
+  const params = new URLSearchParams({ question: $("q").value,
+    force_reject: $("force_reject").checked ? 1 : 0, pipeline: $("pipeline").checked ? 1 : 0, mcp: $("mcp").checked ? 1 : 0 });
+  $("timeline").replaceChildren();
+  flowSteps = [];
+  renderStateFlow();
+  $("sfDetail").replaceChildren(el("span", { class: "hint" }, "Click a cell to inspect it."));
+  $("summaryPanel").hidden = true;
+  resetGraph();
+  $("run").disabled = true;
+  let finished = false;
+  const end = () => { finished = true; es.close(); $("run").disabled = false;
+    document.querySelectorAll(".g-node.active").forEach(n => n.classList.remove("active")); };
+
+  es = new EventSource("/api/run?" + params);
+  es.addEventListener("start", (e) => {
+    const d = JSON.parse(e.data);
+    $("timeline").append(el("div", { class: "badges", style: "margin:0 0 4px" },
+      el("span", { class: "badge" }, `model: ${d.llm}`),
+      el("span", { class: d.search === "mock" ? "badge warn" : "badge" }, `search: ${d.search}`),
+      el("span", { class: "badge" }, `researcher: ${d.researcher_mode}`),
+      el("span", { class: d.tool_transport === "mcp" ? "badge accent" : "badge" }, `tools: ${d.tool_transport}`),
+      el("span", { class: "badge" }, `max revisions: ${d.max_revisions}`),
+      d.force_reject ? el("span", { class: "badge warn" }, "forced first rejection") : null));
+  });
+  es.addEventListener("node_start", (e) => {
+    const d = JSON.parse(e.data);
+    setActive(d.node);
+    $("timeline").append(el("div", { class: "step running", id: "pending", style: `--c:${colorVar(d.node)}` },
+      el("div", { class: "step-head" }, el("span", { class: "step-num" }, `#${d.step}`),
+        el("span", { class: "step-node" }, d.node), el("span", { class: "hint" }, "running…"))));
+  });
+  es.addEventListener("node_end", (e) => {
+    const d = JSON.parse(e.data);
+    finishNode(d.node);
+    addStepCard(d);
+    flowSteps.push({ step: d.step, node: d.node, input: d.input, result: d.result || {} });
+    renderStateFlow();
+    if (d.node === "save_memory") traverse("save_memory", "END");
+  });
+  es.addEventListener("done", (e) => {
+    const d = JSON.parse(e.data), s = d.state;
+    const cls = { approved: "badge ok", unapproved: "badge warn", failed: "badge bad" }[s.outcome] || "badge";
+    $("summary").replaceChildren(
+      el("span", { class: cls }, `outcome: ${s.outcome}`),
+      el("span", { class: "badge" }, `review: ${s.review_status}`),
+      el("span", { class: s.revision_count ? "badge warn" : "badge" }, `retry: ${s.revision_count ? "yes" : "no"} (${s.revision_count})`),
+      el("span", { class: "badge" }, `checkpoints: ${d.checkpoints}`),
+      el("span", { class: "badge" }, (() => {
+        const u = s.llm_usage || [];
+        const tok = u.reduce((a, x) => a + x.input_tokens + x.output_tokens, 0);
+        const cost = u.reduce((a, x) => a + x.cost_usd, 0);
+        return `${u.length} LLM calls · ${tok.toLocaleString()} tokens · ~$${cost.toFixed(4)}`;
+      })()));
+    $("answer").textContent = s.final_answer;
+    $("summaryPanel").hidden = false;
+    $("n-END").classList.add("visited");
+    renderMemory(d.memory);
+    end();
+  });
+  es.addEventListener("fail", (e) => {
+    $("timeline").append(el("div", { class: "error-box" }, JSON.parse(e.data).message));
+    end();
+  });
+  es.onerror = () => { if (!finished) { $("timeline").append(el("div", { class: "error-box" }, "Lost connection to the server.")); end(); } };
+}
+
+/* ---------------- memory ---------------- */
+function renderMemory(rows) {
+  const box = $("memory");
+  if (!rows.length) { box.replaceChildren(el("span", { class: "hint" }, "Empty. Saved facts appear here after an approved answer.")); return; }
+  box.replaceChildren(...rows.map(r => el("div", { class: "mem-item" },
+    el("span", { class: r.category === "preference" ? "tag replace" : "tag" }, r.category), " ",
+    r.content, el("div", { class: "hint" }, `#${r.id} · ${r.source} · ${r.created_at}`))));
+}
+async function loadMemory() { renderMemory(await (await fetch("/api/memory")).json()); }
+$("memAdd").onclick = async () => {
+  const content = $("memInput").value.trim();
+  if (!content) return;
+  await fetch("/api/memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+  $("memInput").value = ""; loadMemory();
+};
+$("memClear").onclick = async () => { await fetch("/api/memory", { method: "DELETE" }); loadMemory(); };
+
+/* ---------------- init ---------------- */
+(async () => {
+  drawGraph();
+  const c = await (await fetch("/api/config")).json();
+  NODE_READS = c.node_reads;
+  const usingMock = c.llm_provider === "mock";
+  $("cfg").replaceChildren(
+    el("span", { class: usingMock ? "badge warn" : "badge ok" }, usingMock ? "model: mock (no OPENAI_API_KEY)" : `model: ${c.openai_model}`),
+    el("span", { class: "badge" }, `search: ${c.search_provider}`),
+    el("span", { class: "badge" }, `researcher: ${c.researcher_mode}`),
+    el("span", { class: "badge" }, `tools: ${c.tool_transport}`),
+    el("span", { class: "badge" }, `max revisions: ${c.max_revisions}`));
+  $("form").addEventListener("submit", run);
+  loadMemory();
+})();
+</script>
+</body>
+</html>

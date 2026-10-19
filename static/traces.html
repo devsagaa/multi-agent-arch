@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Traces</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dfe3e8;
+    --text: #1d2330; --muted: #667085; --accent: #3b5bdb; --accent-soft: #e7ecff;
+    --ok: #2b8a3e; --ok-soft: #e6f4ea; --bad: #c92a2a; --bad-soft: #fdecec; --warn: #b7791f; --warn-soft: #fdf3e1;
+    --node: #3b5bdb; --model: #6943c1; --tool: #b7591f; --server: #0b7a69; --code-bg: #f4f5f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+      --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+      --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c; --warn: #fcc419; --warn-soft: #3a3016;
+      --node: #7c95ff; --model: #ac8ef2; --tool: #ffa94d; --server: #4cc6ae; --code-bg: #12161d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+    --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+    --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c; --warn: #fcc419; --warn-soft: #3a3016;
+    --node: #7c95ff; --model: #ac8ef2; --tool: #ffa94d; --server: #4cc6ae; --code-bg: #12161d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel); display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { font-size: 13px; font-weight: 600; color: var(--accent); }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .panel h3 { font-size: 13px; margin: 14px 0 6px; }
+  .muted { color: var(--muted); font-size: 12.5px; }
+  .intro { color: var(--muted); font-size: 13.5px; margin: 0; max-width: 110ch; }
+  .intro b { color: var(--text); }
+  button, select { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); padding: 6px 11px; font-size: 13px; }
+  .row { display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: center; }
+  .badge { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 11.5px; background: var(--panel-2); white-space: nowrap; }
+  .badge.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+  .badge.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+  .badge.svc-mcp-server { color: var(--server); border-color: var(--server); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .card { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+  .card b { display: block; font-size: 20px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .card span { font-size: 12px; color: var(--muted); }
+  .tw { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--border); vertical-align: top; white-space: nowrap; }
+  td.wrapcell { white-space: normal; min-width: 220px; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--panel-2); border-top: none; position: sticky; top: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--panel-2); }
+  tr.sel td { background: var(--accent-soft) !important; }
+  .scroll { max-height: 340px; overflow: auto; }
+  .split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1050px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  /* waterfall */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .legend i { display: inline-block; width: 12px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .wf { display: grid; gap: 1px; }
+  .wf .r { display: grid; grid-template-columns: minmax(150px, 38%) minmax(0, 1fr); gap: 8px; align-items: center; padding: 2px 4px;
+           border-radius: 5px; cursor: pointer; border: 1px solid transparent; }
+  .wf .r:hover { background: var(--panel-2); }
+  .wf .r.sel { background: var(--accent-soft); border-color: var(--accent); }
+  .wf .name { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wf .name .tw2 { color: var(--muted); }
+  .wf .track { position: relative; height: 16px; }
+  .wf .bar { position: absolute; top: 3px; height: 10px; border-radius: 3px; min-width: 2px; background: var(--node); }
+  .wf .bar.model { background: var(--model); } .wf .bar.tool { background: var(--tool); } .wf .bar.server { background: var(--server); }
+  .wf .bar.err { outline: 2px solid var(--bad); outline-offset: 1px; }
+  .wf .dur { position: absolute; top: 0; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .wf .err-dot { color: var(--bad); font-weight: 700; }
+  .boundary { font-size: 11px; color: var(--server); }
+  dl { margin: 0; display: grid; grid-template-columns: minmax(120px, max-content) minmax(0, 1fr); gap: 3px 12px; font-size: 12.5px; }
+  dt { font-family: ui-monospace, Consolas, monospace; color: var(--muted); overflow-wrap: anywhere; }
+  dt.hot { color: var(--accent); }
+  dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; max-height: 160px; overflow: auto; }
+  .status { font-weight: 600; padding: 6px 10px; border-radius: 8px; margin: 6px 0; font-size: 13px; }
+  .status.bad { background: var(--bad-soft); color: var(--bad); }
+  ul.logs { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 12px; }
+  ul.logs li { font-family: ui-monospace, Consolas, monospace; padding: 3px 6px; border-radius: 5px; background: var(--panel-2); overflow-wrap: anywhere; }
+  ul.logs li.WARNING { background: var(--warn-soft); } ul.logs li.ERROR { background: var(--bad-soft); }
+  .empty { color: var(--muted); padding: 22px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; }
+  a.link { color: var(--accent); cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Traces: what happened, how long, how much</h1>
+  <a href="/">← Inspector</a>
+  <a href="/flow">How it works</a>
+  <a href="/http">HTTP lab</a>
+  <a href="/mcp">MCP lab</a>
+  <a href="/mcp-console">MCP console</a>
+</header>
+
+<div class="wrap">
+  <p class="intro">Every question is one <b>trace</b>: a tree of timed <b>spans</b> (OpenTelemetry). The app writes spans and JSON logs to
+    <code>traces/otel/</code>; tool calls over MCP carry the trace id in <code>params._meta.traceparent</code>, so the MCP server's
+    spans and logs (a different process) land in the same trace. The numbers below are computed from those spans: per run, across
+    runs, per operation, and by failure type.</p>
+
+  <div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Across runs</h2>
+      <span class="row">
+        <label class="muted" for="days">Window</label>
+        <select id="days"><option value="1">last 24 h</option><option value="7" selected>last 7 days</option><option value="30">last 30 days</option><option value="90">last 90 days</option></select>
+        <button id="refresh">Refresh</button>
+      </span>
+    </div>
+    <p class="muted" id="where" style="margin:6px 0 10px"></p>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Runs</h2>
+    <div class="tw scroll" id="runs"></div>
+  </div>
+
+  <div class="split">
+    <div class="panel" id="tracePanel"><h2>Trace</h2><div class="empty">Pick a run above.</div></div>
+    <div class="panel" id="spanPanel"><h2>Span</h2><div class="empty">Click a row in the waterfall.</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Per operation (all spans in the window)</h2>
+    <p class="muted" style="margin-top:0">Where time and money go. p95 = 95% of calls were at least this fast. Sorted by p95.</p>
+    <div class="tw scroll" id="ops"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Failures by type</h2>
+    <p class="muted" style="margin-top:0">Each failure counted once, at the span where it started (a failed fetch also fails its parent spans).
+      Numbers in messages are replaced by # so similar errors group together.</p>
+    <div class="tw scroll" id="errors"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ms = (v) => v == null ? "–" : v < 1000 ? `${Math.round(v)} ms` : `${(v / 1000).toFixed(v < 10000 ? 2 : 1)} s`;
+const usd = (v) => v == null ? "–" : `$${v < 0.01 ? v.toFixed(5) : v.toFixed(4)}`;
+const when = (t) => new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const outcomeBadge = (o) => `<span class="badge ${o === "approved" ? "ok" : o === "failed" ? "bad" : o ? "warn" : ""}">${esc(o || "unfinished")}</span>`;
+let OV = null, TRACE = null, SEL = null;
+
+function card(value, label) { return `<div class="card"><b>${value}</b><span>${label}</span></div>`; }
+
+async function loadOverview() {
+  const r = await fetch(`/api/traces?days=${$("days").value}`);
+  OV = await r.json();
+  const s = OV.summary;
+  $("where").innerHTML = `Reading <code>${esc(OV.directory)}</code>. Prompt and answer text is ${OV.capture_content ? "<b>recorded</b>" : "not recorded (set OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true to include it)"}.`
+    + (OV.orphan_traces ? ` ${OV.orphan_traces} trace(s) without a run span (e.g. the MCP server used by another host, or a run still in progress).` : "");
+  const outcomes = Object.entries(s.outcomes).map(([k, v]) => `${v} ${k}`).join(" · ") || "–";
+  $("cards").innerHTML = [
+    card(s.runs, `runs · ${esc(outcomes)}`),
+    card(ms(s.duration_p50_ms), "duration p50"),
+    card(ms(s.duration_p95_ms), `duration p95 · max ${ms(s.duration_max_ms)}`),
+    card(usd(s.cost_mean_usd), `cost per run · p95 ${usd(s.cost_p95_usd)}`),
+    card(usd(s.cost_total_usd), "total model cost"),
+    card(s.tokens_mean ?? "–", "tokens per run (mean)"),
+    card(s.tool_failure_rate == null ? "–" : `${Math.round(s.tool_failure_rate * 100)}%`, `tool failures · ${s.tool_failures}/${s.tool_calls}`),
+    card(s.retries, "model retries"),
+    card(s.runs_with_errors, "runs with any error span"),
+  ].join("");
+  renderRuns(); renderOps(); renderErrors();
+  const want = location.hash.slice(1);
+  if (want && /^[0-9a-f]{32}$/.test(want)) openTrace(want);
+  else if (OV.runs[0] && !TRACE) openTrace(OV.runs[0].trace_id);
+}
+
+function renderRuns() {
+  if (!OV.runs.length) { $("runs").innerHTML = `<div class="empty">No runs yet. Run <code>python main.py --mock "What is MCP?"</code> or ask a question on the <a href="/">inspector</a>.</div>`; return; }
+  $("runs").innerHTML = `<table><tr><th>When</th><th>Entry</th><th>Question / run</th><th>Outcome</th><th class="num">Duration</th><th class="num">Cost</th>
+    <th class="num">Tokens</th><th class="num">LLM</th><th class="num">Tools (failed)</th><th class="num">Retries</th><th>Setup</th><th>Processes</th></tr>`
+    + OV.runs.map(r => `<tr class="clickable${TRACE && TRACE.trace_id === r.trace_id ? " sel" : ""}" data-t="${r.trace_id}">
+      <td>${when(r.start)}</td><td>${esc(r.entry)}</td>
+      <td class="wrapcell">${r.question ? esc(r.question.slice(0, 90)) : `<span class="muted mono">${esc(r.case ? "case " + r.case : r.run_id)}</span>`}</td>
+      <td>${outcomeBadge(r.outcome)}${r.revisions ? ` <span class="muted">${r.revisions} rev</span>` : ""}</td>
+      <td class="num">${ms(r.duration_ms)}</td><td class="num">${usd(r.cost_usd)}</td>
+      <td class="num">${(r.input_tokens + r.output_tokens).toLocaleString()}</td><td class="num">${r.llm_calls}</td>
+      <td class="num">${r.tool_calls}${r.tool_failures ? ` <span class="badge bad">${r.tool_failures}</span>` : ""}</td>
+      <td class="num">${r.retries || ""}</td>
+      <td class="muted">${esc(r.llm)} · ${esc(r.search)} · ${esc(r.mode)} · ${esc(r.transport)}</td>
+      <td>${r.services.map(s => `<span class="badge svc-${esc(s)}">${esc(s)}</span>`).join(" ")}</td></tr>`).join("") + "</table>";
+  $("runs").querySelectorAll("tr[data-t]").forEach(tr => tr.addEventListener("click", () => openTrace(tr.dataset.t)));
+}
+
+function renderOps() {
+  if (!OV.operations.length) { $("ops").innerHTML = `<div class="empty">No spans yet.</div>`; return; }
+  $("ops").innerHTML = `<table><tr><th>Operation</th><th class="num">Count</th><th class="num">Errors</th><th class="num">p50</th><th class="num">p95</th>
+    <th class="num">Max</th><th class="num">Tokens</th><th class="num">Cost</th><th>Process</th></tr>`
+    + OV.operations.map(o => `<tr><td>${esc(o.operation)}</td><td class="num">${o.count}</td>
+      <td class="num">${o.errors ? `<span class="badge bad">${o.errors}</span>` : "0"}</td>
+      <td class="num">${ms(o.p50_ms)}</td><td class="num">${ms(o.p95_ms)}</td><td class="num">${ms(o.max_ms)}</td>
+      <td class="num">${o.tokens ? o.tokens.toLocaleString() : ""}</td><td class="num">${o.cost_usd ? usd(o.cost_usd) : ""}</td>
+      <td>${o.services.map(s => `<span class="badge svc-${esc(s)}">${esc(s)}</span>`).join(" ")}</td></tr>`).join("") + "</table>";
+}
+
+function renderErrors() {
+  if (!OV.errors.length) { $("errors").innerHTML = `<div class="empty">No failed spans in this window.</div>`; return; }
+  $("errors").innerHTML = `<table><tr><th class="num">Count</th><th>Operation</th><th>Type</th><th>Message</th><th>Last seen</th><th>Example</th></tr>`
+    + OV.errors.map(e => `<tr><td class="num">${e.count}</td><td>${esc(e.operation)}</td><td><span class="badge bad">${esc(e.type)}</span></td>
+      <td class="wrapcell">${esc(e.message)}</td><td>${when(e.last_seen)}</td>
+      <td><a class="link" data-t="${e.example_trace}">open trace</a></td></tr>`).join("") + "</table>";
+  $("errors").querySelectorAll("a[data-t]").forEach(a => a.addEventListener("click", () => { openTrace(a.dataset.t); $("tracePanel").scrollIntoView({ behavior: "smooth" }); }));
+}
+
+// ---------------------------------------------------------------- one trace
+function category(s) {
+  const a = s.attributes || {};
+  if (a["gen_ai.operation.name"] === "chat") return "model";
+  if (s.service === "mcp-server") return "server";
+  if (s.name.startsWith("execute_tool") || s.name.startsWith("tools/call") || s.name.startsWith("GET ") || s.name.startsWith("web_search")) return "tool";
+  return "node";
+}
+function ordered(spans) {
+  // Depth-first order from the roots, so children sit under their parent (even across processes).
+  const ids = new Set(spans.map(s => s.span_id)), kids = {};
+  for (const s of spans) (kids[ids.has(s.parent_span_id) ? s.parent_span_id : "root"] ||= []).push(s);
+  const out = [];
+  const walk = (pid, depth, parentSvc) => (kids[pid] || []).sort((a, b) => a.start - b.start).forEach(s => {
+    out.push({ s, depth, crossed: parentSvc && parentSvc !== s.service }); walk(s.span_id, depth + 1, s.service);
+  });
+  walk("root", 0, null);
+  return out;
+}
+
+async function openTrace(id) {
+  history.replaceState(null, "", "#" + id);
+  const r = await fetch(`/api/traces/${id}`);
+  TRACE = await r.json(); SEL = null;
+  if (OV) renderRuns();
+  const P = $("tracePanel");
+  if (!TRACE.spans.length) { P.innerHTML = `<h2>Trace</h2><div class="empty">No spans found for ${esc(id)}.</div>`; return; }
+  const rows = ordered(TRACE.spans);
+  const t0 = Math.min(...TRACE.spans.map(s => s.start)), t1 = Math.max(...TRACE.spans.map(s => s.end));
+  const total = Math.max(t1 - t0, 1e-6);
+  const root = rows[0].s, a = root.attributes || {};
+  P.innerHTML = `<h2>Trace <span class="mono" style="text-transform:none">${esc(id)}</span></h2>
+    <div class="row" style="margin-bottom:8px">${outcomeBadge(a["app.outcome"])}
+      <span>${ms(root.duration_ms)}</span><span>${usd(a["app.cost_usd"])}</span>
+      <span class="muted">${TRACE.spans.length} spans · ${TRACE.logs.length} log lines</span>
+      ${TRACE.services.map(s => `<span class="badge svc-${esc(s)}">${esc(s)}</span>`).join(" ")}</div>
+    ${a["app.question"] ? `<p style="margin:0 0 8px"><b>Q:</b> ${esc(a["app.question"])}</p>` : ""}
+    <div class="legend"><span><i style="background:var(--node)"></i>graph node / agent</span><span><i style="background:var(--model)"></i>model call</span>
+      <span><i style="background:var(--tool)"></i>tool / MCP client / network</span><span><i style="background:var(--server)"></i>inside the MCP server process</span>
+      <span><i style="background:var(--panel);outline:2px solid var(--bad)"></i>error</span></div>
+    <div class="wf" id="wf"></div>`;
+  $("wf").innerHTML = rows.map(({ s, depth, crossed }, i) => {
+    const left = (s.start - t0) / total * 100, width = Math.max((s.end - s.start) / total * 100, 0.2);
+    const err = s.status === "ERROR";
+    return `<div class="r" data-i="${i}" title="${esc(s.name)} · ${ms(s.duration_ms)}">
+      <div class="name" style="padding-left:${depth * 13}px">${err ? '<span class="err-dot">● </span>' : ""}${esc(s.name)}
+        ${crossed ? `<span class="boundary">⇢ ${esc(s.service)}</span>` : ""}</div>
+      <div class="track"><div class="bar ${category(s)}${err ? " err" : ""}" style="left:${left}%;width:${width}%"></div>
+        <span class="dur" style="left:${Math.min(left + width, 88)}%;padding-left:4px">${ms(s.duration_ms)}</span></div></div>`;
+  }).join("");
+  $("wf").querySelectorAll(".r").forEach(el => el.addEventListener("click", () => showSpan(rows[+el.dataset.i].s, el)));
+  showSpan(root, $("wf").querySelector(".r"));
+}
+
+const HOT = /^(gen_ai\.|mcp\.|error\.|app\.cost|app\.outcome|http\.)/;
+function showSpan(s, rowEl) {
+  SEL = s;
+  document.querySelectorAll("#wf .r").forEach(r => r.classList.toggle("sel", r === rowEl));
+  const attrs = Object.entries(s.attributes || {}).sort(([a], [b]) => (HOT.test(b) - HOT.test(a)) || a.localeCompare(b));
+  const logs = TRACE.logs.filter(l => l.span_id === s.span_id);
+  const parent = TRACE.spans.find(p => p.span_id === s.parent_span_id);
+  $("spanPanel").innerHTML = `<h2>Span</h2>
+    <div style="font-weight:600;font-size:15px">${esc(s.name)}</div>
+    <div class="row muted" style="margin:4px 0">
+      <span class="badge svc-${esc(s.service)}">${esc(s.service)}</span><span>kind ${esc(s.kind)}</span><span>${ms(s.duration_ms)}</span>
+      <span class="mono">span ${esc(s.span_id)}</span>${parent ? `<span>parent: ${esc(parent.name)}${parent.service !== s.service ? " (other process)" : ""}</span>` : "<span>root</span>"}</div>
+    ${s.status === "ERROR" ? `<div class="status bad">ERROR${s.status_message ? ": " + esc(s.status_message) : ""}</div>` : ""}
+    <h3>Attributes</h3>${attrs.length ? `<dl>${attrs.map(([k, v]) => `<dt class="${HOT.test(k) ? "hot" : ""}">${esc(k)}</dt><dd>${esc(Array.isArray(v) ? v.join(", ") : v)}</dd>`).join("")}</dl>` : '<p class="muted">none</p>'}
+    ${s.events?.length ? `<h3>Events</h3><ul class="logs">${s.events.map(e => `<li>+${ms((e.time - s.start) * 1000)} <b>${esc(e.name)}</b> ${esc(Object.entries(e.attributes || {}).map(([k, v]) => `${k}=${v}`).join("  "))}</li>`).join("")}</ul>` : ""}
+    <h3>Log lines written during this span (${logs.length})</h3>
+    ${logs.length ? `<ul class="logs">${logs.map(l => `<li class="${esc(l.level)}">${esc(l.time.slice(11, 23))} ${esc(l.level)} ${esc(l.logger)}: ${esc(l.message)}</li>`).join("")}</ul>` : '<p class="muted">none: logs are matched to a span by its span_id</p>'}`;
+}
+
+$("refresh").addEventListener("click", loadOverview);
+$("days").addEventListener("change", loadOverview);
+window.addEventListener("hashchange", () => { const id = location.hash.slice(1); if (/^[0-9a-f]{32}$/.test(id) && (!TRACE || TRACE.trace_id !== id)) openTrace(id); });
+loadOverview().catch(e => { $("cards").innerHTML = `<div class="empty">Could not load traces: ${esc(e.message || e)}</div>`; });
+</script>
+</body>
+</html>

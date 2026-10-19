@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTP Lab</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dfe3e8;
+    --text: #1d2330; --muted: #667085; --accent: #3b5bdb; --accent-soft: #e7ecff;
+    --ok: #2b8a3e; --ok-soft: #e6f4ea; --bad: #c92a2a; --bad-soft: #fdecec;
+    --warn: #b7791f; --warn-soft: #fdf3e1; --code-bg: #f4f5f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+      --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+      --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c;
+      --warn: #fcc419; --warn-soft: #3a3016; --code-bg: #12161d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, textarea, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); background: var(--panel);
+           display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { font-size: 13px; font-weight: 600; color: var(--accent); }
+  main { max-width: 1500px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+         grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
+  @media (max-width: 1000px) { main { grid-template-columns: minmax(0, 1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; }
+  .panel h3 { font-size: 13px; margin: 16px 0 6px; }
+  .intro { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; }
+  .intro b { color: var(--text); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--panel); color: var(--text); padding: 6px 11px; font-size: 13px; }
+  button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; padding: 9px 20px; font-size: 14px; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .note { background: var(--accent-soft); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 0 0 10px; }
+  textarea { width: 100%; min-height: 340px; resize: vertical; background: var(--code-bg); color: var(--text);
+             border: 1px solid var(--border); border-radius: 8px; padding: 10px; line-height: 1.45; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+        margin: 0; overflow: auto; max-height: 460px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .muted { color: var(--muted); font-size: 12.5px; }
+  .status { font: 600 15px/1.4 ui-monospace, Consolas, monospace; padding: 8px 12px; border-radius: 8px; }
+  .status.ok { background: var(--ok-soft); color: var(--ok); }
+  .status.bad { background: var(--bad-soft); color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  td { border-top: 1px solid var(--border); padding: 5px 6px; vertical-align: top; overflow-wrap: anywhere; }
+  td:first-child { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  tr.key td:first-child { color: var(--accent); font-weight: 600; }
+  td.v { font-family: ui-monospace, Consolas, monospace; max-width: 260px; }
+  .tablewrap { overflow-x: auto; }
+  dl { margin: 0; display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 4px 12px; font-size: 13px; }
+  dt { font-family: ui-monospace, Consolas, monospace; color: var(--accent); overflow-wrap: anywhere; }
+  dd { margin: 0; }
+  dd code { background: var(--code-bg); padding: 0 4px; border-radius: 4px; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; }
+  .hl { background: var(--warn-soft); color: var(--warn); border-radius: 4px; padding: 0 4px; font-weight: 600; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HTTP Lab: raw OpenAI calls, no SDK</h1>
+  <a href="/">← Inspector</a>
+  <a href="/flow">How it works</a>
+  <a href="/mcp">MCP lab</a>
+  <a href="/mcp-console">MCP console</a>
+  <a href="/traces">Traces</a>
+</header>
+
+<main>
+  <div class="intro">
+    Every model call in this project is just <b>an HTTPS POST with a JSON body</b>. This page sends one with plain
+    <code>httpx</code> (see <code>http_lab.py</code>) and shows everything that comes back: <b>status line, headers, body</b>.
+    Pick a preset, edit the JSON if you like, and send. Calls use your real key (output capped at 500 tokens). This page
+    is separate from the research graph.
+  </div>
+
+  <section class="panel">
+    <h2>Request</h2>
+    <div class="presets" id="presets"></div>
+    <p class="note" id="presetNote"></p>
+    <div class="mono muted">POST https://api.openai.com/v1/chat/completions<br>
+      Authorization: Bearer sk-…(from .env, never shown)<br>Content-Type: application/json</div>
+    <h3>JSON body</h3>
+    <textarea id="body" spellcheck="false"></textarea>
+    <div class="row">
+      <button class="primary" id="send">Send request</button>
+      <span class="muted" id="err"></span>
+    </div>
+    <details>
+      <summary>The same call in Python (httpx)</summary>
+      <pre id="py"></pre>
+    </details>
+  </section>
+
+  <section class="panel" id="out">
+    <h2>Response</h2>
+    <div class="empty">Send a request to see the raw HTTP response.</div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "html") n.innerHTML = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false)
+    n.append(k instanceof Node ? k : document.createTextNode(String(k)));
+  return n;
+}
+
+let MODEL = "gpt-4.1-mini";
+const SEARCH_TOOL = { type: "function", function: {
+  name: "web_search", description: "Search the web. Returns numbered sources with snippets.",
+  parameters: { type: "object", properties: { query: { type: "string" } },
+                required: ["query"], additionalProperties: false }, strict: true } };
+
+const PRESETS = [
+  { id: "normal", label: "Normal answer",
+    note: "A plain call. Expect status 200, finish_reason \"stop\", and token counts in usage.",
+    body: () => ({ model: MODEL, temperature: 0.2, max_completion_tokens: 100, messages: [
+      { role: "system", content: "You are concise." },
+      { role: "user", content: "What is LangGraph, in one sentence?" }] }) },
+  { id: "length", label: "Hit the token limit",
+    note: "max_completion_tokens is 5, so generation is cut off. Expect finish_reason \"length\" and half a sentence. llm.py turns this into an error.",
+    body: () => ({ model: MODEL, max_completion_tokens: 5, messages: [
+      { role: "user", content: "Explain what AWS Lambda is in 100 words." }] }) },
+  { id: "schema", label: "Strict JSON schema",
+    note: "Same response_format as the reviewer. message.content is a JSON string that is guaranteed to match the schema.",
+    body: () => ({ model: MODEL, max_completion_tokens: 200, messages: [
+      { role: "system", content: "You review research findings." },
+      { role: "user", content: "Findings: 'Water boils at 100C at sea level [1]'. Approve?" }],
+      response_format: { type: "json_schema", json_schema: { name: "reviewer_output", strict: true, schema: {
+        type: "object", properties: { approved: { type: "boolean" }, feedback: { type: "string" },
+          unsupported_claims: { type: "array", items: { type: "string" } } },
+        required: ["approved", "feedback", "unsupported_claims"], additionalProperties: false } } } }) },
+  { id: "tool", label: "Tool call",
+    note: "A tool is offered, and the question needs fresh data. Expect finish_reason \"tool_calls\", content null, and message.tool_calls with the arguments as a JSON string. The model runs nothing; it only asks.",
+    body: () => ({ model: MODEL, max_completion_tokens: 100, tools: [SEARCH_TOOL], tool_choice: "auto", messages: [
+      { role: "user", content: "What changed in the most recent LangGraph release? Use your tools." }] }) },
+  { id: "roundtrip", label: "Tool result round-trip",
+    note: "The second half of tool calling: we send back the assistant's tool_calls plus a role:\"tool\" message with the result (matched by tool_call_id). The model now answers in text. This is what the agentic researcher sends on every turn.",
+    body: () => ({ model: MODEL, max_completion_tokens: 150, tools: [SEARCH_TOOL], messages: [
+      { role: "user", content: "What is LangGraph? Use your tools." },
+      { role: "assistant", content: null, tool_calls: [{ id: "call_demo1", type: "function",
+        function: { name: "web_search", arguments: "{\"query\":\"LangGraph\"}" } }] },
+      { role: "tool", tool_call_id: "call_demo1", content:
+        "<source id=\"1\" title=\"LangGraph docs\" url=\"https://langchain-ai.github.io/langgraph/\">\nSnippet: LangGraph is a low-level orchestration framework for building stateful, long-running agents as graphs.\n</source>" }] }) },
+  { id: "stream", label: "Streaming",
+    note: "stream:true changes the response completely: Server-Sent Events, one \"data: {chunk}\" line per few tokens, each with a delta, then \"data: [DONE]\". include_usage adds a final chunk with token counts.",
+    body: () => ({ model: MODEL, stream: true, stream_options: { include_usage: true }, max_completion_tokens: 60,
+      messages: [{ role: "user", content: "Name three AWS services useful for AI agents." }] }) },
+  { id: "badmodel", label: "Error: bad model",
+    note: "There's no choices array, only an error object and a 4xx status. The SDK would raise NotFoundError; here you see the raw body.",
+    body: () => ({ model: "gpt-does-not-exist", messages: [{ role: "user", content: "hi" }] }) },
+  { id: "badparam", label: "Error: bad parameter",
+    note: "temperature must be between 0 and 2. Expect 400 with error.param naming the offending field. This is never worth retrying.",
+    body: () => ({ model: MODEL, temperature: 5, messages: [{ role: "user", content: "hi" }] }) },
+  { id: "badprotocol", label: "Error: missing tool result",
+    note: "An assistant message with tool_calls must be followed by a tool message for each call id. Leaving one out is rejected with 400. This is why the researcher always returns one result per call, in order.",
+    body: () => ({ model: MODEL, tools: [SEARCH_TOOL], messages: [
+      { role: "user", content: "What is LangGraph?" },
+      { role: "assistant", content: null, tool_calls: [{ id: "call_x", type: "function",
+        function: { name: "web_search", arguments: "{\"query\":\"LangGraph\"}" } }] },
+      { role: "user", content: "Well?" }] }) },
+];
+
+const HEADER_NOTES = {
+  "x-request-id": "Unique id for this request. Log it, and quote it to OpenAI support.",
+  "openai-processing-ms": "Time spent on OpenAI's side (queue + generation). Total time minus this is network overhead.",
+  "openai-version": "API version that served the request.",
+  "openai-organization": "Organization the key belongs to.",
+  "openai-project": "Project the key belongs to.",
+  "x-ratelimit-limit-requests": "Requests allowed per minute for this model on your account.",
+  "x-ratelimit-remaining-requests": "Requests left in the current window. Throttle before this reaches 0.",
+  "x-ratelimit-reset-requests": "Time until the request budget refills.",
+  "x-ratelimit-limit-tokens": "Tokens allowed per minute (input + max output are counted up front).",
+  "x-ratelimit-remaining-tokens": "Tokens left in the current window.",
+  "x-ratelimit-reset-tokens": "Time until the token budget refills.",
+  "retry-after": "On 429/503: how many seconds to wait. llm.py could honour this instead of its own backoff.",
+  "content-type": "application/json for normal calls, text/event-stream when streaming.",
+  "cf-ray": "Cloudflare edge id. OpenAI sits behind Cloudflare.",
+  "set-cookie": "Cloudflare bot-management cookie. Irrelevant for API use.",
+};
+
+const FIELD_NOTES = [
+  ["id", "Unique id for this completion (chatcmpl-…)."],
+  ["object", "Which kind of object this is: <code>chat.completion</code> here, <code>chat.completion.chunk</code> when streaming."],
+  ["created", "Unix timestamp (seconds)."],
+  ["model", "The exact snapshot that answered. You asked for an alias, and this is the dated version behind it."],
+  ["system_fingerprint", "Backend configuration. If it changes, outputs can change even with the same seed."],
+  ["service_tier", "Which capacity tier served it (default / flex / priority)."],
+  ["choices", "A list because <code>n</code> can ask for several alternatives. We always use <code>choices[0]</code>."],
+  ["choices[0].message.content", "The text. <code>null</code> when the model calls tools or refuses."],
+  ["choices[0].message.tool_calls", "Tools the model wants run: id, function.name, and function.arguments (a JSON <i>string</i> you must parse)."],
+  ["choices[0].message.refusal", "Set when the model refuses a structured-output request. llm.py raises LLMError."],
+  ["choices[0].message.annotations", "Extra metadata on the text, such as URL citations when web search is built in."],
+  ["choices[0].finish_reason", "Why generation stopped: <code>stop</code> (finished), <code>length</code> (token limit), <code>tool_calls</code>, <code>content_filter</code>."],
+  ["choices[0].logprobs", "Token probabilities, only when <code>logprobs: true</code> is requested."],
+  ["usage.prompt_tokens", "Input tokens, billed at the input price. Includes system, messages and tool schemas."],
+  ["usage.completion_tokens", "Output tokens, billed at the output price."],
+  ["usage.prompt_tokens_details.cached_tokens", "Input tokens served from the prompt cache, billed at a discount (repeated prefixes ≥1024 tokens)."],
+  ["usage.completion_tokens_details.reasoning_tokens", "Hidden \"thinking\" tokens on reasoning models. Billed as output but not shown."],
+  ["error.message", "Human-readable reason."],
+  ["error.type", "Error category, e.g. <code>invalid_request_error</code>."],
+  ["error.code", "Machine-readable code, e.g. <code>model_not_found</code>. Branch on this, not on the message."],
+  ["error.param", "Which request field was wrong (for 400s)."],
+];
+
+function get(obj, path) {
+  return path.replace(/\[(\d+)\]/g, ".$1").split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+let current = PRESETS[0];
+function selectPreset(p) {
+  current = p;
+  document.querySelectorAll("#presets button").forEach(b => b.classList.toggle("on", b.dataset.id === p.id));
+  $("presetNote").textContent = p.note;
+  $("body").value = JSON.stringify(p.body(), null, 2);
+  updatePython();
+}
+
+function updatePython() {
+  let body;
+  try { body = JSON.parse($("body").value); $("err").textContent = ""; }
+  catch (e) { $("err").textContent = "Invalid JSON: " + e.message; return; }
+  const json = JSON.stringify(body, null, 4).replace(/\btrue\b/g, "True").replace(/\bfalse\b/g, "False").replace(/\bnull\b/g, "None");
+  const call = body.stream
+    ? `with httpx.stream("POST", URL, headers=headers, json=body, timeout=60) as r:
+    print(r.status_code, r.headers.get("x-request-id"))
+    for line in r.iter_lines():          # 'data: {...}' ... 'data: [DONE]'
+        print(line)`
+    : `r = httpx.post(URL, headers=headers, json=body, timeout=60)
+print(r.status_code, r.reason_phrase, r.http_version)
+print(r.headers.get("x-request-id"), r.headers.get("x-ratelimit-remaining-tokens"))
+data = r.json()
+if r.status_code != 200:
+    print("error:", data["error"]["code"], data["error"]["message"])
+else:
+    choice = data["choices"][0]
+    print(choice["finish_reason"], choice["message"]["content"], data["usage"])`;
+  $("py").textContent = `import os, httpx
+
+URL = "https://api.openai.com/v1/chat/completions"
+headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"}
+body = ${json}
+
+${call}`;
+}
+
+function headerTable(headers) {
+  const keys = Object.keys(headers).sort((a, b) => (HEADER_NOTES[b] ? 1 : 0) - (HEADER_NOTES[a] ? 1 : 0));
+  return el("div", { class: "tablewrap" }, el("table", {},
+    keys.map(k => el("tr", { class: HEADER_NOTES[k] ? "key" : "" },
+      el("td", {}, k), el("td", { class: "v" }, headers[k]), el("td", { class: "muted" }, HEADER_NOTES[k] || "")))));
+}
+
+function fieldGuide(body) {
+  const rows = FIELD_NOTES.filter(([p]) => get(body, p) !== undefined);
+  if (!rows.length) return null;
+  return [el("h3", {}, "What these fields mean"),
+    el("dl", {}, rows.map(([p, note]) => {
+      let v = get(body, p);
+      const short = typeof v === "object" ? "" : ` = ${String(v).slice(0, 60)}`;
+      return [el("dt", {}, p + short), el("dd", { html: note })];
+    }))];
+}
+
+function verdict(body) {
+  if (!body || typeof body !== "object") return null;
+  if (body.error) return el("p", { class: "note" }, `Error response: no choices, just error.code = "${body.error.code}". In llm.py the SDK raises an exception here; _is_transient() decides whether to retry (only 429/5xx/timeouts).`);
+  const fr = get(body, "choices[0].finish_reason");
+  const msgs = {
+    stop: "finish_reason = stop: the model finished its answer on its own. This is the only ending llm.py accepts as a final answer.",
+    length: "finish_reason = length: cut off at max_completion_tokens. The text is incomplete; check_finish() raises LLMError for this.",
+    tool_calls: "finish_reason = tool_calls: the model wants tools run. Your code runs them, appends role:\"tool\" results, and calls again (the agentic loop).",
+    content_filter: "finish_reason = content_filter: moderation stopped the output.",
+  };
+  return fr ? el("p", { class: "note" }, msgs[fr] || `finish_reason = ${fr}`) : null;
+}
+
+function render(ex) {
+  const out = $("out");
+  out.replaceChildren(el("h2", {}, "Response"));
+  if (ex.error) { out.append(el("div", { class: "status bad" }, ex.error)); return; }
+  if (ex.transport_error) {
+    out.append(el("div", { class: "status bad" }, "No HTTP response: " + ex.transport_error),
+      el("p", { class: "muted" }, "Timeouts and connection errors happen before any status code exists. The SDK raises APITimeoutError / APIConnectionError, and llm.py retries them."));
+    return;
+  }
+  const r = ex.response;
+  out.append(
+    el("div", { class: "status " + (r.status < 400 ? "ok" : "bad") },
+      `${r.http_version} ${r.status} ${r.reason}`),
+    el("div", { class: "row muted" },
+      `total ${r.elapsed_ms} ms`,
+      r.headers["openai-processing-ms"] ? ` · OpenAI processing ${r.headers["openai-processing-ms"]} ms` : "",
+      r.time_to_first_line_ms != null ? ` · first chunk after ${r.time_to_first_line_ms} ms` : ""));
+
+  if (r.stream_lines) {
+    out.append(
+      el("p", { class: "note" }, `Streamed: ${r.stream_lines.length} SSE lines. Each line is "data: " + one JSON chunk with a small delta. The SDK glues the deltas together; below they are shown raw, then assembled.`),
+      el("h3", {}, "Assembled text (all deltas joined)"), el("pre", {}, r.assembled_text || "(empty)"),
+      el("h3", {}, "Raw body: Server-Sent Events, line by line"), el("pre", {}, r.stream_lines.join("\n\n")));
+  } else {
+    out.append(verdict(r.body), el("h3", {}, "Body (JSON)"),
+      el("pre", {}, typeof r.body === "string" ? r.body : JSON.stringify(r.body, null, 2)),
+      fieldGuide(r.body));
+  }
+  out.append(el("h3", {}, `Response headers (${Object.keys(r.headers).length})`),
+    el("p", { class: "muted" }, "Not part of the JSON. The SDK hides these unless you use with_raw_response. Highlighted rows are the useful ones."),
+    headerTable(r.headers));
+}
+
+async function send() {
+  let body;
+  try { body = JSON.parse($("body").value); } catch (e) { $("err").textContent = "Invalid JSON: " + e.message; return; }
+  $("send").disabled = true; $("err").textContent = "sending…";
+  try {
+    const res = await fetch("/api/http-lab", { method: "POST", headers: { "Content-Type": "application/json" },
+                                               body: JSON.stringify({ body }) });
+    render(await res.json());
+    $("err").textContent = "";
+  } catch (e) {
+    $("err").textContent = "Lab request failed: " + e.message;
+  } finally { $("send").disabled = false; }
+}
+
+(async () => {
+  try { const c = await (await fetch("/api/config")).json(); if (c.openai_model) MODEL = c.openai_model; } catch {}
+  $("presets").append(...PRESETS.map(p => {
+    const b = el("button", { type: "button" }, p.label); b.dataset.id = p.id; b.onclick = () => selectPreset(p); return b; }));
+  selectPreset(PRESETS[0]);
+  $("body").addEventListener("input", updatePython);
+  $("send").onclick = send;
+})();
+</script>
+</body>
+</html>

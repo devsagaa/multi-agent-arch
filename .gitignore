@@ -1,0 +1,8 @@
+.env
+.venv/
+.venv-phoenix/
+__pycache__/
+.pytest_cache/
+*.db
+traces/
+evals/results/

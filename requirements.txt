@@ -1,0 +1,9 @@
+langgraph>=1.0,<2
+openai>=1.40
+ddgs>=9.0
+mcp>=1.10,<2
+opentelemetry-api>=1.27,<2
+opentelemetry-sdk>=1.27,<2
+opentelemetry-exporter-otlp-proto-http>=1.27,<2
+python-dotenv>=1.0
+pytest>=8.0

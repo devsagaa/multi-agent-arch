@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How It Works</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #dfe3e8;
+    --text: #1d2330; --muted: #667085; --accent: #3b5bdb; --accent-soft: #e7ecff;
+    --ok: #2b8a3e; --ok-soft: #e6f4ea; --bad: #c92a2a; --bad-soft: #fdecec;
+    --warn: #b7791f; --warn-soft: #fdf3e1; --code-bg: #f4f5f8;
+    --n-load: #0c8599; --n-sup: #7048e8; --n-res: #1971c2; --n-rev: #e8590c;
+    --n-fin: #2b8a3e; --n-save: #0c8599; --n-term: #868e96;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1218; --panel: #171b23; --panel-2: #1e232d; --border: #2b313d;
+      --text: #e6e9ef; --muted: #98a2b3; --accent: #7c95ff; --accent-soft: #232b48;
+      --ok: #51cf66; --ok-soft: #17301d; --bad: #ff6b6b; --bad-soft: #3a1c1c;
+      --warn: #fcc419; --warn-soft: #3a3016; --code-bg: #12161d;
+      --n-load: #3bc9db; --n-sup: #9775fa; --n-res: #4dabf7; --n-rev: #ff922b;
+      --n-fin: #69db7c; --n-save: #3bc9db; --n-term: #adb5bd;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+  code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+  pre { margin: 0; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+        padding: 10px 12px; white-space: pre-wrap; word-break: break-word; overflow: auto; }
+  pre code { border: none; padding: 0; background: none; }
+  a { color: var(--accent); }
+
+  header { padding: 14px 24px; border-bottom: 1px solid var(--border); background: var(--panel);
+           display: flex; align-items: center; gap: 16px; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 17px; margin: 0; }
+  nav.toc { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+  nav.toc a { color: var(--muted); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+  .switch { margin-left: auto; font-size: 13px; font-weight: 600; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 8px 24px 64px; }
+  section { margin-top: 40px; scroll-margin-top: 70px; }
+  h2 { font-size: 22px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 6px; }
+  .lede { color: var(--muted); margin: 0 0 18px; max-width: 820px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  .hint { color: var(--muted); font-size: 13px; }
+  .chip { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; margin: 2px 4px 2px 0;
+          background: var(--panel-2); border: 1px solid var(--border); font-family: ui-monospace, Consolas, monospace; }
+  .chip.r { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+  .chip.w { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+
+  /* hero stages */
+  .stages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; counter-reset: s; }
+  @media (max-width: 900px) { .stages { grid-template-columns: 1fr 1fr; } }
+  .stage { background: var(--panel); border: 1px solid var(--border); border-top: 3px solid var(--c); border-radius: 10px; padding: 12px; }
+  .stage b { display: block; margin-bottom: 4px; }
+  .stage::before { counter-increment: s; content: counter(s); font-size: 12px; font-weight: 700; color: var(--c); }
+  .stage p { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+  /* graph */
+  svg { width: 100%; height: auto; display: block; }
+  .g-node rect { fill: var(--panel-2); stroke: var(--c); stroke-width: 1.5; transition: all .2s; }
+  .g-node text { fill: var(--text); font-size: 13px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+  .g-node { cursor: pointer; }
+  .g-node:hover rect { stroke-width: 3; }
+  .g-node.sel rect, .g-node.active rect { fill: var(--c); }
+  .g-node.sel text, .g-node.active text { fill: #fff; }
+  .g-edge { stroke: var(--border); stroke-width: 1.8; fill: none; }
+  .g-edge.cond { stroke-dasharray: 5 4; }
+  .g-edge.hot { stroke: var(--accent); stroke-width: 3; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .info h3 { margin-top: 0; color: var(--c); font-size: 18px; }
+  .info dl { margin: 0; display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 14px; }
+  .info dt { color: var(--muted); }
+  .info dd { margin: 0; }
+
+  /* walkthrough */
+  .player { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 16px; }
+  @media (max-width: 900px) { .player { grid-template-columns: 1fr; } }
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+           background: var(--panel); color: var(--text); padding: 6px 14px; }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  .progress { flex: 1; height: 6px; background: var(--panel-2); border-radius: 3px; overflow: hidden; min-width: 80px; }
+  .progress div { height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .step-title { font-size: 18px; font-weight: 700; color: var(--c); margin: 0 0 4px; }
+  .step-text { margin: 0 0 10px; }
+  .state { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  .state td { border-top: 1px solid var(--border); padding: 5px 6px; vertical-align: top; overflow-wrap: anywhere; }
+  .state td:first-child { width: 150px; font-family: ui-monospace, Consolas, monospace; }
+  .state tr.changed td { background: var(--warn-soft); }
+  .state tr.changed td:first-child { font-weight: 700; color: var(--warn); }
+  .state tr.read td:first-child { color: var(--accent); font-weight: 700; }
+  .state .val { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+  .muted { color: var(--muted); }
+
+  /* pipelines */
+  .pipe { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+  .pipe .box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; flex: 1 1 150px; min-width: 150px; }
+  .pipe .box b { display: block; font-size: 14px; }
+  .pipe .box span { font-size: 13px; color: var(--muted); }
+  .pipe .arrow { display: flex; align-items: center; padding: 0 6px; color: var(--muted); font-size: 18px; }
+  @media (max-width: 900px) { .pipe { flex-direction: column; } .pipe .arrow { justify-content: center; transform: rotate(90deg); padding: 2px; } }
+
+  .prompt { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .prompt div { padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13.5px; }
+  .prompt div:first-child { border-top: none; }
+  .prompt .sys { background: var(--accent-soft); }
+  .prompt .lbl { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--muted); display: block; }
+  .not { background: var(--bad-soft); color: var(--bad); }
+
+  /* tool-call sequence diagram */
+  .seq-scroll { overflow-x: auto; }
+  #seq { min-width: 860px; }
+  .lane-head rect { fill: var(--panel-2); stroke: var(--border); }
+  .lane-head text { fill: var(--text); font-size: 12.5px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+  .lifeline { stroke: var(--border); stroke-dasharray: 3 4; }
+  .msg line { stroke: var(--muted); stroke-width: 1.6; }
+  .msg.ret line { stroke-dasharray: 6 4; }
+  .msg text { fill: var(--text); font-size: 11.5px; text-anchor: middle; }
+  .msg:not(.note) text:not(.num) { paint-order: stroke; stroke: var(--panel); stroke-width: 4px; stroke-linejoin: round; }
+  .msg .num { fill: var(--muted); font-size: 11px; font-weight: 700; text-anchor: end; }
+  .msg rect.note { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1; }
+  .msg.bad line { stroke: var(--bad); }
+  .msg.bad rect.note { fill: var(--bad-soft); stroke: var(--bad); }
+  .msg.bad text { fill: var(--bad); }
+  .msg { transition: opacity .2s; cursor: pointer; }
+  .msg.future { opacity: .18; }
+  .msg.cur line { stroke: var(--accent); stroke-width: 3; }
+  .msg.cur text { font-weight: 700; }
+  .msg.cur rect.note { stroke-width: 2.5; }
+  .scen { display: flex; gap: 6px; flex-wrap: wrap; }
+  .scen button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .seq-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+  @media (max-width: 900px) { .seq-detail { grid-template-columns: 1fr; } }
+  .field { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 13.5px; }
+  .field dt { font-family: ui-monospace, Consolas, monospace; color: var(--accent); }
+  .field dd { margin: 0; }
+
+  /* agentic loop */
+  .loopbox { border: 2px dashed var(--n-res); border-radius: 14px; padding: 14px 14px 10px; background: var(--panel); }
+  .loopbox .tag { font-size: 12px; font-weight: 700; color: var(--n-res); text-transform: uppercase; letter-spacing: .04em; }
+  .loopbox .back { margin-top: 8px; font-size: 13px; color: var(--n-res); font-weight: 600; }
+  .ends { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 900px) { .ends { grid-template-columns: 1fr; } }
+  .ends .panel { border-left: 4px solid var(--c); }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.t th, table.t td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: top; }
+  table.t th { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .03em; border-top: none; }
+  .tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>How the Research Graph Works</h1>
+  <nav class="toc">
+    <a href="#overview">Overview</a><a href="#graph">Graph</a><a href="#walk">Walkthrough</a>
+    <a href="#state">State</a><a href="#researcher">Researcher</a><a href="#tools">Tool calls</a><a href="#llm">What the LLM sees</a>
+    <a href="#failures">Failures</a><a href="#memory">Memory</a><a href="#inspector">Inspector</a><a href="#files">Files</a>
+  </nav>
+  <a class="switch" href="/">Open the inspector →</a>
+  <a href="/http" style="font-size:13px;font-weight:600">HTTP lab →</a>
+  <a href="/mcp" style="font-size:13px;font-weight:600">MCP lab →</a>
+</header>
+
+<div class="wrap">
+
+<!-- ============================================================ OVERVIEW -->
+<section id="overview">
+  <h2>The big picture</h2>
+  <p class="lede">You ask a question. Four agents take turns working on one shared piece of state
+    until a reviewed answer exists. They never call each other: a supervisor reads the state and
+    decides who goes next.</p>
+  <div class="stages">
+    <div class="stage" style="--c:var(--n-load)"><b>Remember</b><p>Load your preferences and related past facts from SQLite into the state.</p></div>
+    <div class="stage" style="--c:var(--n-res)"><b>Research</b><p>The model drives a tool loop: it decides what to search and which pages to read, then writes cited findings.</p></div>
+    <div class="stage" style="--c:var(--n-rev)"><b>Review</b><p>Code checks the citations, then a model checks the claims. Rejected? One more research round.</p></div>
+    <div class="stage" style="--c:var(--n-fin)"><b>Answer</b><p>The finalizer turns approved findings into the answer you read.</p></div>
+    <div class="stage" style="--c:var(--n-save)"><b>Save</b><p>If the answer was approved, a short summary is stored for next time.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ GRAPH -->
+<section id="graph">
+  <h2>The graph</h2>
+  <p class="lede">Built in <code>graph.py</code> with LangGraph's <code>StateGraph</code>. Every worker
+    hands control back to the supervisor (hub-and-spoke), so all routing lives in one function.
+    <b>Click any node</b> to see what it does.</p>
+  <div class="grid2">
+    <div class="panel">
+      <svg id="graph" viewBox="0 0 640 350" role="img" aria-label="Agent graph"></svg>
+      <div class="legend"><span>── fixed edge (always taken)</span><span>- - conditional edge (supervisor decides)</span></div>
+    </div>
+    <div class="panel info" id="info"></div>
+  </div>
+
+  <h3>Four words that are easy to mix up</h3>
+  <div class="grid2">
+    <div class="panel"><b>Node</b> — a Python function <code>state → partial update</code> registered in the graph.
+      The unit LangGraph executes. <span class="hint">e.g. <code>agents.researcher</code></span></div>
+    <div class="panel"><b>Agent</b> — a node with a role that makes a decision, by calling a model
+      (researcher, reviewer, finalizer) or by rules (supervisor). <code>load_memory</code> is a node but not an agent.</div>
+    <div class="panel"><b>Edge</b> — a transition. Fixed edges always fire; the one conditional edge calls
+      <code>route_from_supervisor(state)</code>, which returns the name of the next node.</div>
+    <div class="panel"><b>Tool</b> — a plain function that touches the outside world
+      (<code>web_search</code>, <code>fetch_page</code>). Not part of the graph. The <i>model</i> asks for tool calls,
+      and the <i>researcher's code</i> runs them. Choosing a tool is not routing: control never leaves the researcher node.</div>
+  </div>
+</section>
+
+<!-- ============================================================ WALKTHROUGH -->
+<section id="walk">
+  <h2>Step-by-step walkthrough</h2>
+  <p class="lede">A run where the reviewer rejects the first draft, so you see the retry path. On the right is the
+    shared state after each step: <span class="chip w">yellow</span> = changed by this step,
+    <span class="chip r">blue</span> = read by this node.</p>
+  <div class="player">
+    <div>
+      <div class="panel">
+        <svg id="graph2" viewBox="0 0 640 350" role="img" aria-label="Walkthrough graph"></svg>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <div class="controls">
+          <button id="prev" type="button">← Back</button>
+          <button id="next" class="primary" type="button">Next →</button>
+          <button id="play" type="button">▶ Play</button>
+          <div class="progress"><div id="bar"></div></div>
+          <span class="hint" id="count"></span>
+        </div>
+        <p class="step-title" id="stTitle"></p>
+        <p class="step-text" id="stText"></p>
+        <div id="stExtra"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <b>ResearchState</b> <span class="hint">(the dict LangGraph passes between nodes)</span>
+      <table class="state" id="stateTable"></table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ STATE -->
+<section id="state">
+  <h2>Shared state and how updates merge</h2>
+  <p class="lede">The state is a <code>TypedDict</code> in <code>state.py</code>. A node receives the whole thing
+    but returns only the keys it changed. LangGraph merges that partial update using each key's <b>reducer</b>.</p>
+  <div class="grid2">
+    <div class="panel">
+      <h3 style="margin-top:0">Replace (default)</h3>
+      <p>Most keys: the new value overwrites the old. That's why the second research round replaces the first
+        round's <code>research_findings</code>.</p>
+<pre><code>review_status: ReviewStatus
+research_findings: str
+
+# old: "pending"   update: "approved"
+# new: "approved"</code></pre>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Append (<code>operator.add</code>)</h3>
+      <p><code>history</code> and <code>tool_calls</code> accumulate across nodes and retries, so nothing
+        is lost from the trace.</p>
+<pre><code>history: Annotated[list[HistoryEntry], operator.add]
+
+# old: [a, b]   update: [c]
+# new: [a, b, c]</code></pre>
+    </div>
+  </div>
+  <div class="panel" style="margin-top:16px">
+    <b>Why the researcher never calls the reviewer:</b> it sets <code>review_status="pending"</code> and returns.
+    The supervisor sees <code>"pending"</code> and routes to the reviewer, which reads
+    <code>research_findings</code> from state. Agents are decoupled; you can swap, test or reorder them
+    without touching each other.
+  </div>
+</section>
+
+<!-- ============================================================ RESEARCHER -->
+<section id="researcher">
+  <h2>Inside the researcher: the tool-calling loop</h2>
+  <p class="lede">The only node that touches the internet. The <b>model decides</b> what to search, which results to
+    read and when it has enough. The <b>code decides</b> what is allowed and how much. The loop runs entirely inside
+    one LangGraph node (<code>_research_agentic</code> in <code>agents.py</code>).</p>
+
+  <div class="pipe">
+    <div class="box"><b>Start a conversation</b><span><code>messages = [system, user]</code>: rules, budget and security notice, then
+      question + memory + reviewer feedback. Plus the tool menu: <code>web_search(query)</code>, <code>fetch_page(source_id)</code>.</span></div>
+  </div>
+  <div class="loopbox" style="margin-top:10px">
+    <div class="tag">Loop: at most MAX_TOOL_TURNS (4) turns that may use tools</div>
+    <div class="pipe" style="margin-top:8px">
+      <div class="box"><b>1. Model turn</b><span><code>llm.chat(messages, tools)</code>: one API call with the whole conversation so far.</span></div>
+      <div class="arrow">→</div>
+      <div class="box"><b>2. Reply</b><span><code>finish_reason: "tool_calls"</code> → it wants tools. <code>"stop"</code> → its text is the findings; leave the loop.</span></div>
+      <div class="arrow">→</div>
+      <div class="box"><b>3. Validate &amp; run</b><span>Parse the arguments, check the tool, the budget and the source id. Run searches; run fetches in parallel.</span></div>
+      <div class="arrow">→</div>
+      <div class="box"><b>4. Append</b><span>The assistant's <code>tool_calls</code> message, then one <code>role:"tool"</code> result per call id, fenced in <code>&lt;source&gt;</code> tags.</span></div>
+    </div>
+    <div class="back">↺ back to 1. Last turn: <code>tool_choice="none"</code>, so the model must answer in text.</div>
+  </div>
+  <div class="ends">
+    <div class="panel" style="--c:var(--ok)"><b>Sources gathered + text answer</b><br>
+      Return <code>research_findings</code>, <code>sources</code>, <code>tool_calls</code>, <code>llm_usage</code>,
+      <code>review_status="pending"</code>. The reviewer never knows how the evidence was gathered.</div>
+    <div class="panel" style="--c:var(--bad)"><b>No sources gathered</b><br>
+      Return <code>error</code>, whatever the model wrote. Text without evidence is never passed off as research.</div>
+  </div>
+
+  <h3>Guardrails: the model chooses, code limits</h3>
+  <div class="panel tablewrap">
+    <table class="t">
+      <tr><th>Guardrail</th><th>What it stops</th></tr>
+      <tr><td>Turn limit + forced final turn (<code>tool_choice: "none"</code>)</td><td>A model that never stops calling tools</td></tr>
+      <tr><td>Budgets: <code>MAX_SEARCHES</code> 3, <code>MAX_FETCHES</code> 4. Over budget gives a "Budget exhausted" result</td><td>Runaway cost and latency</td></tr>
+      <tr><td><code>fetch_page</code> takes a <b>source id</b> from search results, never a URL</td><td>Injected page text steering the agent to arbitrary or internal URLs (the SSRF checks still run underneath)</td></tr>
+      <tr><td>Strict JSON schemas on tool arguments; bad JSON, unknown tools and invalid ids become error <i>results</i></td><td>One malformed call crashing the run. The model sees the error and can correct itself</td></tr>
+      <tr><td>Stuck detection: a repeated search isn't run again; 2 turns in a row with no new sources or page text force the answer</td><td>Loops that keep going without learning anything</td></tr>
+      <tr><td>One result per call id, in order; repeated URLs keep one id; a page already read isn't fetched again</td><td>API protocol errors (400), duplicate sources, wasted fetches</td></tr>
+      <tr><td>Every tool result fenced and escaped; <code>UNTRUSTED_NOTICE</code> in the system prompt</td><td>Prompt injection through search snippets or page text</td></tr>
+    </table>
+  </div>
+
+  <h3>Fixed pipeline vs model-driven: who decides what?</h3>
+  <div class="panel tablewrap">
+    <table class="t">
+      <tr><th>Decision</th><th>Pipeline (<code>--pipeline</code>)</th><th>Agentic (default)</th></tr>
+      <tr><td>Search query</td><td>Code: the question + a feedback hint</td><td>Model, and it can search again with a better query</td></tr>
+      <tr><td>Which pages to read</td><td>Code: always the top 3</td><td>Model: the ones it judges relevant (in the real run it skipped #1 and #5)</td></tr>
+      <tr><td>When to stop</td><td>Fixed: after one pass</td><td>Model, within the budgets</td></tr>
+      <tr><td>Model calls per round</td><td>1</td><td>2–5 (one per turn)</td></tr>
+      <tr><td>Predictability</td><td>High: same steps every time</td><td>Lower: different runs can take different paths</td></tr>
+      <tr><td>Cost</td><td>Lower; the prompt is sent once</td><td>Higher; the conversation is re-sent every turn</td></tr>
+    </table>
+  </div>
+  <p class="hint">Neither is "better" by default. That is what an evaluation set is for: run both on the same
+    questions and compare quality and cost.</p>
+</section>
+
+<!-- ============================================================ TOOL CALLS -->
+<section id="tools">
+  <h2>Tool call flow, step by step</h2>
+  <p class="lede">Every call made during one agentic research round, in order: to the model, to the tools, and to
+    the internet. Solid arrows are calls, dashed arrows are return values. Pick a scenario, then step through it
+    (or click any arrow).</p>
+  <div class="panel">
+    <div class="controls" style="justify-content:space-between">
+      <div class="scen" id="scen">
+        <button type="button" data-s="ok" class="on">All good</button>
+        <button type="button" data-s="badcall">Bad tool call</button>
+        <button type="button" data-s="fetchfail">One page fails</button>
+        <button type="button" data-s="searchfail">Search fails</button>
+        <button type="button" data-s="runaway">Runaway model</button>
+      </div>
+      <div class="controls" style="margin:0">
+        <button id="tPrev" type="button">← Back</button>
+        <button id="tNext" class="primary" type="button">Next →</button>
+        <button id="tPlay" type="button">▶ Play</button>
+        <span class="hint" id="tCount"></span>
+      </div>
+    </div>
+    <div class="seq-scroll"><svg id="seq" role="img" aria-label="Tool call sequence diagram"></svg></div>
+  </div>
+  <div class="seq-detail">
+    <div class="panel">
+      <p class="step-title" id="tTitle" style="--c:var(--accent)"></p>
+      <p class="step-text" id="tText"></p>
+      <pre id="tCode" hidden><code></code></pre>
+    </div>
+    <div class="panel">
+      <b>Rules every tool follows</b>
+      <ul style="margin:8px 0 0; padding-left:20px">
+        <li><b>Never raises.</b> Network errors, timeouts, 403s, PDFs and empty results all become a record with
+          <code>ok: false</code> and an <code>error</code> message.</li>
+        <li><b>Always recorded.</b> Every call is appended to <code>state.tool_calls</code>, success or failure.</li>
+        <li><b>Provider is visible.</b> <code>ddgs</code>, <code>http</code> or <code>mock</code>, so a mock result is never
+          mistaken for a real one.</li>
+        <li><b>Failures go back to the model.</b> A failed search or fetch becomes a tool result such as
+          <code>"web_search failed: …"</code>, so the model can retry differently. Only if the round ends with
+          <b>no sources at all</b> does the run stop with an error.</li>
+        <li><b>Bounded.</b> 5 results per search, at most 3 searches and 4 page reads per round, 10 s timeout and
+          2 MB cap per page, 3,000 chars kept per page. All but the timeout and cap are set in <code>.env</code>.</li>
+        <li><b>The model asks, code executes.</b> The model only produces a request
+          (<code>{"name": "fetch_page", "arguments": "{\"source_id\": 2}"}</code>). Validation, budgets, the network call and
+          error handling all happen in Python.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>The <code>ToolCall</code> record</h3>
+  <p class="hint" style="margin-top:0">Both tools return the same shape (defined in <code>state.py</code>). These are what you see in the inspector's Tools tab.</p>
+  <div class="grid2">
+<pre><code>{
+  "tool": "web_search",
+  "call_id": "call_Yx81…",
+  "arguments": "{\"query\": \"common failure modes…\"}",
+  "provider": "ddgs",
+  "input": "Should a software engineer learn AWS ...",
+  "ok": true,
+  "result_count": 5,
+  "error": null,
+  "results": [
+    { "title": "Build AI agents with AWS | ...",
+      "url": "https://aws.amazon.com/...",
+      "snippet": "Learn to design, orchestrate ..." },
+    ...
+  ]
+}</code></pre>
+<pre><code>{
+  "tool": "fetch_page",
+  "call_id": "call_Qd20…",
+  "arguments": "{\"source_id\": 2}",
+  "provider": "http",
+  "input": "https://aws.amazon.com/ai/build-ai-agents/",
+  "ok": true,
+  "result_count": 1,
+  "error": null,
+  "results": [],
+  "content": "Build &amp; Ship AI Agents: From Pilot to
+    Production – AWS\nYour agent demo took a week.
+    Production is taking six months. ... …[truncated]"
+}</code></pre>
+  </div>
+  <div class="panel" style="margin-top:12px">
+    <dl class="field">
+      <dt>tool</dt><dd>Which function ran.</dd>
+      <dt>call_id</dt><dd>The id the model gave this tool call. The result message sent back carries the same
+        <code>tool_call_id</code>, which is how the API matches results to requests.</dd>
+      <dt>arguments</dt><dd>The raw JSON string the model produced, exactly as requested, before validation.</dd>
+      <dt>provider</dt><dd>Which backend served it: <code>ddgs</code> (DuckDuckGo), <code>http</code> (direct download) or <code>mock</code> (tests).</dd>
+      <dt>input</dt><dd>What the tool actually ran with: the query, or the URL looked up from the source id.</dd>
+      <dt>ok</dt><dd>The one field the researcher checks. <code>false</code> means: don't use this as evidence.</dd>
+      <dt>error</dt><dd>Human-readable reason when <code>ok</code> is false, e.g. <code>Fetch failed: HTTPError: HTTP Error 403: Forbidden</code>.</dd>
+      <dt>results</dt><dd><code>web_search</code> only: the hits. These become <code>state.sources</code>.</dd>
+      <dt>content</dt><dd><code>fetch_page</code> only: extracted page text. Copied into <code>sources[i].content</code>, then into the prompt.</dd>
+    </dl>
+  </div>
+
+  <h3>Where tool output ends up</h3>
+  <div class="pipe">
+    <div class="box"><b>ToolCall records</b><span>returned by <code>web_search</code> / <code>fetch_page</code></span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>role:"tool" messages</b><span>during the loop: fenced text the researcher model reads on its next turn</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>state.tool_calls</b><span>every record appended: the audit trail. No model ever reads it</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>state.sources</b><span>deduplicated hits with ids, plus page text where a fetch worked</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>Reviewer &amp; finalizer prompts</b><span>built from <code>sources</code>, not from the conversation</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>You</b><span>inspector Tools tab, CLI trace, and <code>-v</code> log lines from <code>tools.py</code></span></div>
+  </div>
+</section>
+
+<!-- ============================================================ LLM -->
+<section id="llm">
+  <h2>What the LLM actually sees</h2>
+  <p class="lede">Each model call is stateless. The model cannot read the graph state; it sees only the text a node
+    copies into the prompt. Deciding what goes in (and what stays out) is the engineer's job.</p>
+  <div class="grid3">
+    <div>
+      <h3>Researcher <span class="hint">(a growing conversation)</span></h3>
+      <div class="prompt">
+        <div class="sys"><span class="lbl">tools</span><code>web_search(query)</code>, <code>fetch_page(source_id)</code>: names, descriptions, JSON schemas</div>
+        <div class="sys"><span class="lbl">system</span>Research agent with tools; budget; cite [n] using tool source ids; untrusted-data notice.</div>
+        <div><span class="lbl">user</span>Question, long-term memory, reviewer feedback <span class="hint">(revision only)</span></div>
+        <div><span class="lbl">assistant</span><code>tool_calls</code>: web_search({"query": …})</div>
+        <div><span class="lbl">tool</span>Numbered <code>&lt;source&gt;</code> blocks with snippets</div>
+        <div><span class="lbl">assistant</span><code>tool_calls</code>: fetch_page({"source_id": 2}), …</div>
+        <div><span class="lbl">tool</span>Full page text, fenced. <span class="hint">Each turn re-sends everything above.</span></div>
+        <div class="not">Not sent: tool_calls log, history, revision_count</div>
+      </div>
+    </div>
+    <div>
+      <h3>Reviewer</h3>
+      <div class="prompt">
+        <div class="sys"><span class="lbl">system</span>Strict reviewer: check each claim against its cited source. Output enforced by a strict JSON schema:
+          <code>{"approved", "feedback", "unsupported_claims"}</code>.</div>
+        <div><span class="lbl">user</span>Question</div>
+        <div>Findings <span class="hint">(read from state)</span></div>
+        <div>Sources: snippets + full page text</div>
+        <div class="not">Not sent: memory, tool_calls, the researcher's conversation. Skipped entirely if the code citation check fails</div>
+      </div>
+    </div>
+    <div>
+      <h3>Finalizer</h3>
+      <div class="prompt">
+        <div class="sys"><span class="lbl">system</span>Write the final answer; keep citations; respect preferences.</div>
+        <div><span class="lbl">user</span>Question</div>
+        <div>User memory <span class="hint">(preferences, facts)</span></div>
+        <div>Research findings</div>
+        <div>Sources</div>
+        <div class="not">Not sent: review_feedback (unless unapproved — then it's prepended to the answer by code)</div>
+      </div>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:10px">The supervisor makes no model call: its routing is plain Python rules in
+    <code>decide_next_step()</code>. Only the researcher gets tools; the reviewer and finalizer read web text but have no
+    way to act, which limits what a prompt injection could do. In the inspector, open the LLM tab on any step to see the
+    exact messages, and the <a href="/http">HTTP lab</a> shows the same requests at the raw HTTP level.</p>
+</section>
+
+<!-- ============================================================ FAILURES -->
+<section id="failures">
+  <h2>Retry limit and failure paths</h2>
+  <p class="lede">All of these are decided by <code>decide_next_step()</code> in <code>agents.py</code>, checked in this order:</p>
+  <div class="panel tablewrap">
+    <table class="t">
+      <tr><th>Condition in state</th><th>Next node</th><th>Why</th></tr>
+      <tr><td><code>final_answer</code> is set</td><td><span class="chip ok">save_memory</span></td><td>Work is done; persist and finish.</td></tr>
+      <tr><td><code>error</code> is set</td><td><span class="chip bad">finalizer</span></td><td>Search or model failed. The finalizer writes "I could not produce a reliable answer" <b>without</b> calling the model. Nothing is saved to memory.</td></tr>
+      <tr><td><code>review_status = not_started</code></td><td><span class="chip">researcher</span></td><td>No research yet.</td></tr>
+      <tr><td><code>review_status = pending</code></td><td><span class="chip">reviewer</span></td><td>New findings need review.</td></tr>
+      <tr><td><code>review_status = approved</code></td><td><span class="chip ok">finalizer</span></td><td>Good to answer.</td></tr>
+      <tr><td><code>rejected</code> and <code>revision_count &lt; MAX_REVISIONS</code></td><td><span class="chip w">researcher</span></td><td>Retry. The supervisor increments <code>revision_count</code>.</td></tr>
+      <tr><td><code>rejected</code> after a revision, and <code>review_score</code> didn't improve</td><td><span class="chip w">finalizer</span></td><td>Stuck detection: another revision is unlikely to help, so stop early and mark it unapproved.</td></tr>
+      <tr><td><code>rejected</code> and limit reached</td><td><span class="chip w">finalizer</span></td><td>Answer anyway, but marked "did NOT pass review"; <code>outcome="unapproved"</code>; not saved to memory.</td></tr>
+    </table>
+  </div>
+  <p class="hint">The limit lives in code, not in a prompt, so a model can never talk its way into an infinite loop.
+    The same idea applies one level down: inside the researcher, the tool loop is capped by <code>MAX_TOOL_TURNS</code>,
+    <code>MAX_SEARCHES</code> and <code>MAX_FETCHES</code>. Two nested loops, both bounded by code. As a last safety net,
+    every run sets LangGraph's <code>recursion_limit</code> just above the longest legitimate path, so a routing bug fails fast.</p>
+</section>
+
+<!-- ============================================================ MEMORY -->
+<section id="memory">
+  <h2>Five kinds of “memory” — not interchangeable</h2>
+  <div class="panel tablewrap">
+    <table class="t">
+      <tr><th></th><th>What it is</th><th>Lives for</th><th>In this project</th></tr>
+      <tr><td><b>1. Agent context</b></td><td>The exact text in one model call</td><td>One API call</td><td>The system/user strings each node builds</td></tr>
+      <tr><td><b>2. Shared graph state</b></td><td>Typed dict passed between nodes</td><td>One run</td><td><code>ResearchState</code></td></tr>
+      <tr><td><b>3. Conversation history</b></td><td>Chat turns with a user</td><td>A chat session</td><td>Not implemented — each run is one question</td></tr>
+      <tr><td><b>4. Long-term memory</b></td><td>Data saved on purpose</td><td>Across restarts</td><td>SQLite <code>memory.db</code>: preferences + summaries of approved answers</td></tr>
+      <tr><td><b>5. Checkpointing</b></td><td>LangGraph's snapshot of state after every step</td><td>As long as the checkpointer keeps it (in-memory here)</td><td><code>InMemorySaver</code>; used for inspection/resume, <b>not</b> for remembering facts</td></tr>
+    </table>
+  </div>
+  <div class="pipe" style="margin-top:16px">
+    <div class="box"><b>memory.db</b><span>preferences + facts</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>load_memory</b><span>all preferences + up to 5 facts sharing keywords with the question</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>state.memory_context</b><span>read by researcher and finalizer prompts</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>save_memory</b><span>only when <code>outcome="approved"</code>: one-line summary back to SQLite</span></div>
+  </div>
+</section>
+
+<!-- ============================================================ INSPECTOR -->
+<section id="inspector">
+  <h2>How the inspector gets a live trace</h2>
+  <p class="lede">The browser can't run Python, so <code>server.py</code> runs the graph and streams each step as it happens
+    using Server-Sent Events.</p>
+  <div class="pipe">
+    <div class="box"><b>Browser</b><span><code>EventSource("/api/run?question=…")</code></span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>server.py</b><span>wraps the model in <code>RecordingLLM</code> (records every <code>complete()</code> and <code>chat()</code> turn), builds the graph</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>graph.stream(debug)</b><span><code>task</code> event = state in; <code>task_result</code> = update out</span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>SSE events</b><span><code>node_start</code>, <code>node_end</code> (+ drained LLM calls), <code>done</code></span></div>
+    <div class="arrow">→</div>
+    <div class="box"><b>Page</b><span>animates the graph, renders a card per step</span></div>
+  </div>
+  <p class="hint">The agents don't know they're being recorded: <code>RecordingLLM</code> has the same
+    <code>complete()</code> and <code>chat()</code> interface as the real client. That's the payoff of injecting dependencies.
+    The researcher's step card shows one LLM call per loop turn, each with its <code>finish_reason</code> and <code>tool_choice</code>.</p>
+</section>
+
+<!-- ============================================================ FILES -->
+<section id="files">
+  <h2>Where things live</h2>
+  <div class="panel tablewrap">
+    <table class="t">
+      <tr><th>File</th><th>Responsibility</th></tr>
+      <tr><td><code>state.py</code></td><td>The <code>ResearchState</code> schema and reducers; <code>initial_state()</code></td></tr>
+      <tr><td><code>graph.py</code></td><td>Nodes + edges → compiled graph with checkpointer</td></tr>
+      <tr><td><code>agents.py</code></td><td>The six node functions, <code>decide_next_step()</code>, the agentic loop
+        (<code>_research_agentic</code>, <code>_run_tool_calls</code>, <code>RESEARCH_TOOLS</code>), citation check, review schema</td></tr>
+      <tr><td><code>tools.py</code></td><td><code>web_search</code> and <code>fetch_page</code> (never raise; return records; SSRF checks)</td></tr>
+      <tr><td><code>llm.py</code></td><td><code>complete()</code> and <code>chat()</code> (tool turns); retries, finish_reason checks;
+        <code>OpenAILLM</code>, <code>MockLLM</code> (scripted tool use for tests), <code>RecordingLLM</code> (inspector)</td></tr>
+      <tr><td><code>memory.py</code></td><td>SQLite <code>MemoryStore</code>: upsert per question, keyword retrieval, list, clear</td></tr>
+      <tr><td><code>config.py</code></td><td>Settings from <code>.env</code>: model, search, researcher mode, tool budgets, max revisions</td></tr>
+      <tr><td><code>http_lab.py</code> + <code>static/http.html</code></td><td>The HTTP lab: raw OpenAI calls with httpx, no SDK</td></tr>
+      <tr><td><code>main.py</code></td><td>Terminal demo</td></tr>
+      <tr><td><code>server.py</code> + <code>static/</code></td><td>This page and the inspector</td></tr>
+      <tr><td><code>tests/</code></td><td>Offline tests with mock and scripted models and mock tools (<code>test_agentic.py</code> covers the loop)</td></tr>
+    </table>
+  </div>
+</section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const COLORS = { START: "--n-term", END: "--n-term", load_memory: "--n-load", supervisor: "--n-sup",
+  researcher: "--n-res", reviewer: "--n-rev", finalizer: "--n-fin", save_memory: "--n-save" };
+const cv = (n) => `var(${COLORS[n]})`;
+
+/* ---------------- graph drawing (shared by both diagrams) ---------------- */
+const NODES = {
+  START: [70, 40, 80], load_memory: [70, 145, 120], supervisor: [320, 145, 120],
+  save_memory: [565, 145, 120], END: [565, 40, 80],
+  researcher: [150, 295, 120], reviewer: [320, 295, 120], finalizer: [490, 295, 120],
+};
+const H = 40;
+const EDGES = [
+  ["START", "load_memory", false], ["load_memory", "supervisor", false],
+  ["supervisor", "researcher", true], ["researcher", "supervisor", false],
+  ["supervisor", "reviewer", true], ["reviewer", "supervisor", false],
+  ["supervisor", "finalizer", true], ["finalizer", "supervisor", false],
+  ["supervisor", "save_memory", true], ["save_memory", "END", false],
+];
+const NS = "http://www.w3.org/2000/svg";
+const s = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+
+function edgePoints(a, b) {
+  const [ax, ay, aw] = NODES[a], [bx, by, bw] = NODES[b];
+  const workers = ["researcher", "reviewer", "finalizer"];
+  if ((a === "supervisor" && workers.includes(b)) || (b === "supervisor" && workers.includes(a))) {
+    const down = a === "supervisor", off = down ? -9 : 9, w = down ? b : a;
+    const p = [NODES.supervisor[0] + off, NODES.supervisor[1] + H / 2, NODES[w][0] + off, NODES[w][1] - H / 2];
+    return down ? p : [p[2], p[3], p[0], p[1]];
+  }
+  if (ay === by) return ax < bx ? [ax + aw / 2, ay, bx - bw / 2, by] : [ax - aw / 2, ay, bx + bw / 2, by];
+  return ay < by ? [ax, ay + H / 2, bx, by - H / 2] : [ax, ay - H / 2, bx, by + H / 2];
+}
+
+function drawGraph(svg, prefix, onClick) {
+  const defs = s("defs", {});
+  for (const [id, color] of [[prefix + "arr", "var(--muted)"], [prefix + "arrh", "var(--accent)"]]) {
+    const m = s("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" });
+    m.append(s("path", { d: "M0,0 L10,5 L0,10 z", style: `fill:${color}` }));
+    defs.append(m);
+  }
+  svg.append(defs);
+  for (const [a, b, cond] of EDGES) {
+    const [x1, y1, x2, y2] = edgePoints(a, b);
+    svg.append(s("line", { id: `${prefix}e-${a}-${b}`, class: "g-edge" + (cond ? " cond" : ""), x1, y1, x2, y2, "marker-end": `url(#${prefix}arr)` }));
+  }
+  for (const [name, [x, y, w]] of Object.entries(NODES)) {
+    const g = s("g", { id: `${prefix}n-${name}`, class: "g-node", style: `--c:${cv(name)}` });
+    g.append(s("rect", { x: x - w / 2, y: y - H / 2, width: w, height: H, rx: name === "START" || name === "END" ? 20 : 8 }));
+    const t = s("text", { x, y }); t.textContent = name; g.append(t);
+    if (onClick) g.addEventListener("click", () => onClick(name));
+    svg.append(g);
+  }
+}
+
+/* ---------------- node info ---------------- */
+const INFO = {
+  START: { role: "Entry point. Not a function — LangGraph's marker for where execution begins.",
+    reads: [], writes: [], calls: "—", by: "graph.stream(initial_state(question))", removed: "Nothing would run.", code: "graph.py" },
+  load_memory: { role: "Copies relevant long-term memory from SQLite into the shared state, so agents can use it without touching the database.",
+    reads: ["question"], writes: ["memory_context", "history"], calls: "MemoryStore.relevant()", by: "fixed edge from START",
+    removed: "Agents would never see your preferences or past facts.", code: "agents.py · load_memory" },
+  supervisor: { role: "Decides which node runs next and records why. Owns revision_count, so the retry limit is enforced in one place.",
+    reads: ["final_answer", "error", "review_status", "revision_count"], writes: ["next_step", "revision_count", "history"],
+    calls: "decide_next_step() — plain rules, no model", by: "fixed edges from load_memory, researcher, reviewer, finalizer",
+    removed: "No routing: no retry loop, no retry limit, no failure handling.", code: "agents.py · supervisor, decide_next_step" },
+  researcher: { role: "Runs a tool-calling loop: the model decides what to search and which pages to read; code runs the tools within fixed budgets. Ends with cited findings.",
+    reads: ["question", "memory_context", "review_status", "review_feedback"],
+    writes: ["research_findings", "sources", "tool_calls", "llm_usage", "review_status", "error", "history"],
+    calls: "LLM turns ×2–5 via chat(); web_search ≤ 3; fetch_page ≤ 4 (as the model requests)", by: "conditional edge from supervisor",
+    removed: "No evidence; the reviewer has nothing to check.", code: "agents.py · researcher" },
+  reviewer: { role: "Quality gate. Checks citations in code, then the model returns a schema-enforced verdict: approved or rejected, with feedback and unsupported claims.",
+    reads: ["question", "research_findings", "sources", "revision_count"], writes: ["review_status", "review_feedback", "citation_check", "llm_usage", "error", "history"],
+    calls: "check_citations() (code), then LLM ×1 with a strict JSON schema. No model call if the citations fail or a rejection is forced.", by: "conditional edge from supervisor",
+    removed: "Unchecked research goes straight to the user.", code: "agents.py · reviewer" },
+  finalizer: { role: "Writes the user-facing answer from approved findings — or an honest failure message if an error occurred.",
+    reads: ["question", "error", "memory_context", "research_findings", "sources", "review_status", "review_feedback"],
+    writes: ["final_answer", "outcome", "history"], calls: "LLM ×1 (none on the error path)", by: "conditional edge from supervisor",
+    removed: "The user gets raw findings, or nothing.", code: "agents.py · finalizer" },
+  save_memory: { role: "Persists a one-line summary to SQLite — only when the reviewer approved the answer.",
+    reads: ["question", "outcome", "final_answer"], writes: ["history"], calls: "MemoryStore.upsert_fact() (skipped for mock runs)", by: "conditional edge from supervisor",
+    removed: "Nothing is learned across runs.", code: "agents.py · save_memory" },
+  END: { role: "Exit point. When reached, graph.stream() stops and the final state is available via graph.get_state().",
+    reads: [], writes: [], calls: "—", by: "fixed edge from save_memory", removed: "The graph would have no way to finish.", code: "graph.py" },
+};
+function chips(keys, cls) {
+  return keys.length ? keys.map(k => `<span class="chip ${cls}">${k}</span>`).join("") : '<span class="hint">—</span>';
+}
+function showInfo(name) {
+  document.querySelectorAll("#graph .g-node").forEach(n => n.classList.toggle("sel", n.id === `n-${name}`));
+  const i = INFO[name];
+  const box = $("info");
+  box.style.setProperty("--c", cv(name));
+  box.innerHTML = `<h3>${name}</h3><p style="margin-top:0">${i.role}</p>
+    <dl><dt>Reads</dt><dd>${chips(i.reads, "r")}</dd>
+    <dt>Writes</dt><dd>${chips(i.writes, "w")}</dd>
+    <dt>Calls</dt><dd>${i.calls}</dd>
+    <dt>Invoked by</dt><dd>${i.by}</dd>
+    <dt>If removed</dt><dd>${i.removed}</dd>
+    <dt>Code</dt><dd><code>${i.code}</code></dd></dl>`;
+}
+
+/* ---------------- walkthrough ---------------- */
+const Q = "Should a software engineer learn AWS before building production AI agents?";
+const STEPS = [
+  { node: "START", title: "Run starts", text: "main.py or server.py calls graph.stream(initial_state(question)). Every key starts empty.",
+    set: { question: `"${Q}"`, memory_context: "[]", research_findings: '""', sources: "[]", tool_calls: "[]",
+           review_status: '"not_started"', review_feedback: '""', revision_count: "0", next_step: "—", final_answer: '""', outcome: "—", error: "None", history: "[]" } },
+  { node: "load_memory", title: "Load long-term memory", text: "Queries SQLite: all preferences plus facts that share keywords with the question.",
+    set: { memory_context: '["User preference: I prefer concise answers with bullet points", "Saved fact: …"]', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: no research yet", text: 'review_status is "not_started" → route to researcher. The conditional edge reads next_step.',
+    set: { next_step: '"researcher"', history: "+1 entry" } },
+  { node: "researcher", title: "Research round 1 (tool loop)", text: "Inside this one node the model takes 3 turns: it asks for web_search, then for fetch_page on the 3 sources it judges most relevant (in parallel), then writes cited findings.",
+    extra: "tool_calls gets 4 records (1 search + 3 fetches), appended, not replaced. LangGraph sees one node run. The loop is plain Python inside the researcher.",
+    set: { research_findings: '"- Learning AWS is helpful but not mandatory upfront [1] …"', sources: "[5 hits, top 3 with full page text]",
+           tool_calls: "+4 (now 4)", review_status: '"pending"', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: findings pending", text: 'review_status is "pending" → route to reviewer.',
+    set: { next_step: '"reviewer"', history: "+1 entry" } },
+  { node: "reviewer", title: "Review: rejected", text: "The reviewer reads research_findings from state (the researcher never called it). The citation check passes in code, then the model rejects the findings with feedback.",
+    set: { review_status: '"rejected"', review_feedback: '"Add concrete examples and trade-offs."', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: retry allowed", text: "Rejected and revision_count (0) < MAX_REVISIONS (1) → back to researcher, and bump the counter.",
+    set: { next_step: '"researcher"', revision_count: "1", history: "+1 entry" } },
+  { node: "researcher", title: "Research round 2 (tool loop)", text: "A fresh conversation whose first message includes the reviewer feedback. The model reacts to it, typically with a different, more specific search. Findings are replaced.",
+    set: { research_findings: '"- … with concrete examples and trade-offs [2][3] …"', sources: "[new hits]", tool_calls: "+4 (now 8)",
+           review_status: '"pending"', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: findings pending", text: "Same rule as before → reviewer.",
+    set: { next_step: '"reviewer"', history: "+1 entry" } },
+  { node: "reviewer", title: "Review: approved", text: "This time the verdict is approved.",
+    set: { review_status: '"approved"', review_feedback: '"Findings answer the question and are supported."', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: approved", text: 'review_status is "approved" → finalizer. (Had it been rejected again, the limit would also send it here, marked unapproved.)',
+    set: { next_step: '"finalizer"', history: "+1 entry" } },
+  { node: "finalizer", title: "Write the answer", text: "One model call turns findings + sources + your preferences into the final answer.",
+    set: { final_answer: '"- Learning AWS before building … is helpful but not mandatory …"', outcome: '"approved"', history: "+1 entry" } },
+  { node: "supervisor", title: "Supervisor: answer exists", text: "final_answer is set → save_memory.",
+    set: { next_step: '"save_memory"', history: "+1 entry" } },
+  { node: "save_memory", title: "Save to long-term memory", text: 'outcome is "approved", so a one-line summary is written to memory.db. Then the fixed edge goes to END.',
+    extra: "This is the only step that changes something outside the state.",
+    set: { history: "+1 entry" } },
+  { node: "END", title: "Done", text: "graph.stream() finishes. The checkpointer holds a snapshot of every step, and the final state has the answer, the full history and all 8 tool calls.",
+    set: {} },
+];
+const KEYS = Object.keys(STEPS[0].set);
+const READS = Object.fromEntries(Object.entries(INFO).map(([k, v]) => [k, v.reads]));
+
+let cur = 0, timer = null;
+function stateAt(i) {
+  const st = {};
+  for (let j = 0; j <= i; j++) Object.assign(st, STEPS[j].set);
+  return st;
+}
+function render() {
+  const step = STEPS[cur], st = stateAt(cur);
+  $("stTitle").style.setProperty("--c", cv(step.node));
+  $("stTitle").textContent = `${cur}. ${step.node} — ${step.title}`;
+  $("stText").textContent = step.text;
+  $("stExtra").innerHTML = step.extra ? `<p class="hint" style="margin:0">${step.extra}</p>` : "";
+  $("count").textContent = `${cur + 1} / ${STEPS.length}`;
+  $("bar").style.width = `${(cur / (STEPS.length - 1)) * 100}%`;
+  $("prev").disabled = cur === 0;
+  $("next").disabled = cur === STEPS.length - 1;
+
+  const t = $("stateTable");
+  t.replaceChildren();
+  const reads = cur === 0 ? [] : READS[step.node] || [];
+  for (const k of KEYS) {
+    const tr = document.createElement("tr");
+    if (cur > 0 && k in step.set) tr.className = "changed";
+    else if (reads.includes(k)) tr.className = "read";
+    const a = document.createElement("td"); a.textContent = k;
+    const b = document.createElement("td"); b.className = "val"; b.textContent = st[k];
+    if (st[k] === "—") b.classList.add("muted");
+    tr.append(a, b); t.append(tr);
+  }
+
+  document.querySelectorAll("#graph2 .g-node").forEach(n => n.classList.toggle("active", n.id === `w-n-${step.node}`));
+  document.querySelectorAll("#graph2 .g-edge").forEach(e => { e.classList.remove("hot"); e.setAttribute("marker-end", "url(#w-arr)"); });
+  if (cur > 0) {
+    const e = $(`w-e-${STEPS[cur - 1].node}-${step.node}`);
+    if (e) { e.classList.add("hot"); e.setAttribute("marker-end", "url(#w-arrh)"); }
+  }
+}
+function go(d) { cur = Math.max(0, Math.min(STEPS.length - 1, cur + d)); render(); }
+function stop() { clearInterval(timer); timer = null; $("play").textContent = "▶ Play"; }
+$("prev").onclick = () => { stop(); go(-1); };
+$("next").onclick = () => { stop(); go(1); };
+$("play").onclick = () => {
+  if (timer) return stop();
+  if (cur === STEPS.length - 1) cur = 0;
+  $("play").textContent = "❚❚ Pause";
+  render();
+  timer = setInterval(() => { if (cur >= STEPS.length - 1) return stop(); go(1); }, 2200);
+};
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowRight") { stop(); go(1); }
+  if (e.key === "ArrowLeft") { stop(); go(-1); }
+});
+
+/* ---------------- tool-call sequence diagram ---------------- */
+const LANES = [["state", "LangGraph state"], ["researcher", "researcher loop"], ["llm", "OpenAI model"],
+  ["web_search", "web_search()"], ["fetch_page", "fetch_page()"], ["web", "Internet"]];
+const LX = Object.fromEntries(LANES.map(([k], i) => [k, 75 + i * 154]));
+
+const START = [
+  { from: "state", to: "researcher", kind: "call", label: "state in",
+    title: "LangGraph runs the researcher node",
+    text: "The supervisor routed here. The node reads question, memory_context and, on a revision, review_feedback, and starts a fresh conversation.",
+    code: 'messages = [{"role": "system", "content": system},\n            {"role": "user", "content": question + memory + feedback}]' },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 1: chat(messages, tools=[web_search, fetch_page])",
+    title: "Turn 1: ask the model",
+    text: "One API call with the conversation so far plus the tool menu (names, descriptions, JSON schemas). tool_choice is \"auto\": the model decides.",
+    code: 'resp = self.llm.chat("researcher", messages, RESEARCH_TOOLS, tool_choice="auto")' },
+  { from: "llm", to: "researcher", kind: "ret", label: "finish_reason: tool_calls → web_search({query})",
+    title: "The model asks for a search",
+    text: "No text, just a request. The model picked the query itself. It runs nothing; the arguments arrive as a JSON string.",
+    code: '{"id": "call_1", "name": "web_search",\n "arguments": "{\\"query\\": \\"common failure modes of AI agents in production\\"}"}' },
+];
+const SEARCH_OK = [
+  { from: "researcher", to: "web_search", kind: "call", label: "web_search(query)",
+    title: "Code validates, then runs the tool",
+    text: "Parse the JSON, check it's a known tool with budget left, then call the real function. The model never touches the network.",
+    code: 'args = json.loads(call["arguments"])\nbudget["web_search"] -= 1\nrec = self.search(args["query"])' },
+  { from: "web_search", to: "web", kind: "call", label: "DuckDuckGo query (ddgs)",
+    title: "Hit DuckDuckGo", text: "The first real network call. No API key needed." },
+  { from: "web", to: "web_search", kind: "ret", label: "5 hits {title, href, body}",
+    title: "Raw results come back", text: "Each hit has a title, URL and snippet." },
+  { from: "web_search", to: "researcher", kind: "ret", label: "ToolCall { ok: true, results: [5] }",
+    title: "A record, not raw data", text: "Logged in tool_calls with its call_id, success or failure." },
+  { from: "researcher", to: "researcher", kind: "note", label: "give hits ids 1–5, fence them, append role:tool",
+    title: "Turn results into a tool message",
+    text: "Each new URL gets the next source id (a repeated URL keeps its old id). The hits are fenced in <source> tags and appended as ONE tool message answering call_1.",
+    code: 'messages.append(assistant_message(resp))          # the tool_calls request\nmessages.append({"role": "tool", "tool_call_id": "call_1",\n                 "content": "5 results ...\\n<source id=\\"1\\" ...>"})' },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 2: chat(messages + search results)",
+    title: "Turn 2: the model sees the results",
+    text: "The whole conversation is sent again (the API is stateless), now including the search results." },
+];
+const FETCH_REQ = [
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → fetch_page(2), fetch_page(3), fetch_page(4)",
+    title: "The model picks pages to read",
+    text: "Three calls in ONE reply (parallel tool calls). In the real run the model skipped source 1 (a GitHub link list) and source 5; the old pipeline would have read 1–3 blindly.",
+    code: '[{"id": "call_2", "name": "fetch_page", "arguments": "{\\"source_id\\": 2}"},\n {"id": "call_3", ...}, {"id": "call_4", ...}]' },
+  { from: "researcher", to: "researcher", kind: "note", label: "check: id exists? already read? budget left?",
+    title: "Guardrails before any network call",
+    text: "source_id must be one search returned, so the model can't name an arbitrary URL. A page already read isn't fetched again, and each fetch uses budget." },
+  { from: "researcher", to: "fetch_page", kind: "call", label: "fetch_page(sources[id].url) × 3, in parallel",
+    title: "Fetch the chosen pages concurrently",
+    text: "The URL is looked up from the source id, then the fetches run on a thread pool.",
+    code: "with ThreadPoolExecutor(max_workers=len(fetches)) as pool:\n    fetched = list(pool.map(lambda f: self.fetch(sources[f[1] - 1][\"url\"]), fetches))" },
+  { from: "fetch_page", to: "web", kind: "call", label: "HTTP GET (public IPs only, 10 s, ≤ 2 MB)",
+    title: "Download each page", text: "SSRF checks run first: public IPs only, redirects re-checked." },
+];
+const FETCH_OK = [
+  { from: "web", to: "fetch_page", kind: "ret", label: "HTML × 3", title: "Pages arrive", text: "Mostly scripts, menus and markup." },
+  { from: "fetch_page", to: "researcher", kind: "ret", label: "ToolCall { ok, content: 3,000 chars } × 3",
+    title: "Readable text comes back", text: "html_to_text strips scripts, navigation and short lines; the text is cut to PAGE_MAX_CHARS." },
+  { from: "researcher", to: "researcher", kind: "note", label: "3 role:tool messages (call_2, call_3, call_4)",
+    title: "One result per call id, in order",
+    text: "Each page is fenced as <source id=\"n\"> with its full text. The API rejects the next request if any call id is left unanswered (try it in the HTTP lab)." },
+];
+const FETCH_ONE_FAILS = [
+  { from: "web", to: "fetch_page", kind: "ret", label: "HTML, HTML, HTTP 403", bad: true,
+    title: "One site refuses", text: "Common for sites that block scripts. Timeouts and PDFs fail the same way." },
+  { from: "fetch_page", to: "researcher", kind: "ret", label: "2 × ok, 1 × { ok: false, error }", bad: true,
+    title: "The tool absorbs the error", text: "fetch_page never raises; the failed record still goes into tool_calls." },
+  { from: "researcher", to: "researcher", kind: "note", label: "tool result: \"fetch_page failed for source 3: 403…\"", bad: true,
+    title: "The model is told, not the program crashed",
+    text: "The failure becomes that call's result message: \"fetch_page failed for source 3: HTTP Error 403. Its snippet is still usable.\" On its next turn the model can read another source or work with what it has." },
+];
+const ANSWER = [
+  { from: "researcher", to: "llm", kind: "call", label: "turn 3: chat(messages + page texts)",
+    title: "Turn 3", text: "The conversation now holds the search results and the page texts. This is the biggest request of the round (~3k input tokens in the real run)." },
+  { from: "llm", to: "researcher", kind: "ret", label: "finish_reason: stop → findings with [2] [3] [4]",
+    title: "The model decides it has enough", text: "No tool calls this time: the text is the findings. The loop ends." },
+  { from: "researcher", to: "state", kind: "ret", label: "{ findings, sources, tool_calls (+4), llm_usage (+3), status: pending }",
+    title: "Partial update merged into state",
+    text: "Same keys as the old pipeline, so the supervisor, reviewer and finalizer didn't change at all. llm_usage gets one entry per turn.",
+    code: 'return {"tool_calls": records, "sources": sources, "research_findings": findings,\n        "llm_usage": usage, "review_status": "pending", ...}' },
+];
+const BAD_CALL = [
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → fetch_page({\"url\": \"http://169.254.169.254/\"})", bad: true,
+    title: "A bad request (e.g. after a prompt injection)",
+    text: "Say a page told the model to fetch an internal URL. fetch_page has no url parameter, and strict schemas make this unlikely, but code must not rely on that." },
+  { from: "researcher", to: "researcher", kind: "note", label: "no valid source_id → error result, nothing fetched", bad: true,
+    title: "Rejected in code",
+    text: "source_id is missing, so the call is answered with an error message. No network request is made. Unknown tools and invalid JSON are handled the same way.",
+    code: 'results[cid] = f"Error: unknown source_id {sid!r}. Use an id returned by web_search (valid: 1-{len(sources)})."' },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 3: chat(messages + error result)",
+    title: "The model sees the error", text: "The error comes back as an ordinary tool result." },
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → fetch_page({\"source_id\": 2})",
+    title: "It corrects itself", text: "The model follows the rules the error message spelled out." },
+  { from: "researcher", to: "fetch_page", kind: "call", label: "fetch_page(sources[2].url)",
+    title: "A valid fetch", text: "The id maps to a URL that came from search results." },
+  { from: "fetch_page", to: "web", kind: "call", label: "HTTP GET", title: "Download", text: "As normal." },
+  { from: "web", to: "fetch_page", kind: "ret", label: "HTML", title: "Page arrives", text: "As normal." },
+  { from: "fetch_page", to: "researcher", kind: "ret", label: "ToolCall { ok, content }", title: "Text comes back", text: "Appended as the result for this call id." },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 4: chat(…)", title: "Turn 4", text: "The conversation now includes the page." },
+  { from: "llm", to: "researcher", kind: "ret", label: "finish_reason: stop → findings", title: "Findings", text: "The loop ends normally." },
+  { from: "researcher", to: "state", kind: "ret", label: "{ findings, sources, tool_calls, status: pending }",
+    title: "Partial update merged", text: "tool_calls records the valid fetch. The rejected request only appears in the conversation (LLM tab), because no tool ran." },
+];
+const SEARCH_FAILS = [
+  { from: "researcher", to: "web_search", kind: "call", label: "web_search(query)", title: "Run the search", text: "As normal." },
+  { from: "web_search", to: "web", kind: "call", label: "DuckDuckGo query", title: "Network call", text: "Fails: no internet, rate limit, or no results." },
+  { from: "web", to: "web_search", kind: "ret", label: "exception / 0 results", bad: true, title: "Search fails", text: "web_search catches it." },
+  { from: "web_search", to: "researcher", kind: "ret", label: "ToolCall { ok: false, error }", bad: true,
+    title: "Failed record", text: "Logged in tool_calls, and the error becomes the tool result." },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 2: chat(… \"web_search failed: …\")", bad: true,
+    title: "The model is told", text: "Unlike the pipeline, a failed search doesn't end the round immediately: the model gets a chance to react." },
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → web_search({different query})",
+    title: "It retries with a new query",
+    text: "Exactly what happened in a real run where the search library was missing: the model rephrased and tried again. The search budget caps how often." },
+  { from: "researcher", to: "web_search", kind: "call", label: "web_search(query 2)", bad: true, title: "Fails again", text: "Same outage." },
+  { from: "web_search", to: "researcher", kind: "ret", label: "ToolCall { ok: false }", bad: true, title: "Still nothing", text: "Two failed records now." },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 3", title: "Turn 3", text: "The model gives up searching and writes something." },
+  { from: "llm", to: "researcher", kind: "ret", label: "finish_reason: stop → some text", title: "Text, but no evidence", text: "Whatever it says, it has no sources." },
+  { from: "researcher", to: "state", kind: "ret", label: "{ error: \"No sources found (…)\" }", bad: true,
+    title: "Stop honestly",
+    text: "sources is empty, so the model's text is discarded and the node returns error. The supervisor routes to the finalizer, which reports the failure without a model call. Nothing is saved to memory.",
+    code: 'if not sources:\n    return {"error": f"No sources found ({errors})", ...}' },
+];
+const RUNAWAY = [
+  { from: "researcher", to: "web_search", kind: "call", label: "web_search ×1 (budget 3 → 2)", title: "Search 1", text: "As normal." },
+  { from: "web_search", to: "researcher", kind: "ret", label: "results", title: "Results", text: "Appended." },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 2", title: "Turn 2", text: "The model sees the search results." },
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → web_search again", title: "Search 2", text: "Budget 2 → 1." },
+  { from: "researcher", to: "llm", kind: "call", label: "turns 3–4 …", title: "And again…", text: "The model keeps searching. Search 3 uses the last of the budget." },
+  { from: "llm", to: "researcher", kind: "ret", label: "tool_calls → web_search (4th)", bad: true, title: "Over budget", text: "The 4th search request." },
+  { from: "researcher", to: "researcher", kind: "note", label: "\"Budget exhausted: no web_search calls left. Write your findings now.\"", bad: true,
+    title: "Code refuses, politely",
+    text: "No search is run. The refusal is the tool result, which tells the model what to do instead." },
+  { from: "researcher", to: "llm", kind: "call", label: "turn 5 (last): tool_choice = \"none\"",
+    title: "Forced final turn",
+    text: "After MAX_TOOL_TURNS (4) tool turns, the request still describes the tools but sets tool_choice: \"none\". The API then only allows a text answer.",
+    code: 'choice = "none" if turns > s.max_tool_turns else "auto"' },
+  { from: "llm", to: "researcher", kind: "ret", label: "finish_reason: stop → findings",
+    title: "It has to answer", text: "The loop can't run forever, whatever the model wants. At most 5 model calls per round." },
+  { from: "researcher", to: "state", kind: "ret", label: "{ findings, sources, tool_calls, llm_usage (+5), status: pending }",
+    title: "Back to the graph", text: "The reviewer then judges whether the evidence was good enough." },
+];
+const SCENARIOS = {
+  ok: [...START, ...SEARCH_OK, ...FETCH_REQ, ...FETCH_OK, ...ANSWER],
+  badcall: [...START, ...SEARCH_OK, ...BAD_CALL],
+  fetchfail: [...START, ...SEARCH_OK, ...FETCH_REQ, ...FETCH_ONE_FAILS, ...ANSWER],
+  searchfail: [...START, ...SEARCH_FAILS],
+  runaway: [...START, ...RUNAWAY],
+};
+
+let scen = "ok", tcur = 0, ttimer = null;
+const ROW = 44, TOP = 84;
+function drawSeq() {
+  const steps = SCENARIOS[scen];
+  const svg = $("seq");
+  const h = TOP + steps.length * ROW + 10;
+  svg.setAttribute("viewBox", `0 0 920 ${h}`);
+  svg.replaceChildren();
+  const defs = s("defs", {});
+  for (const [id, color] of [["sa", "var(--muted)"], ["sah", "var(--accent)"], ["sab", "var(--bad)"]]) {
+    const m = s("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" });
+    m.append(s("path", { d: "M0,0 L10,5 L0,10 z", style: `fill:${color}` }));
+    defs.append(m);
+  }
+  svg.append(defs);
+  for (const [k, label] of LANES) {
+    const g = s("g", { class: "lane-head" });
+    g.append(s("rect", { x: LX[k] - 64, y: 12, width: 128, height: 34, rx: 8 }));
+    const t = s("text", { x: LX[k], y: 29 }); t.textContent = label; g.append(t);
+    svg.append(g);
+    svg.append(s("line", { class: "lifeline", x1: LX[k], y1: 46, x2: LX[k], y2: h - 4 }));
+  }
+  steps.forEach((st, i) => {
+    const y = TOP + i * ROW;
+    const g = s("g", { class: `msg ${st.kind}${st.bad ? " bad" : ""}`, id: `m-${i}` });
+    g.addEventListener("click", () => { tstop(); tcur = i; renderSeq(); });
+    const num = s("text", { class: "num", x: 18, y: y + 4 }); num.textContent = i + 1; g.append(num);
+    if (st.kind === "note") {
+      const w = Math.max(150, st.label.length * 6.4 + 20);
+      const x = Math.min(Math.max(LX[st.from] - w / 2, 28), 912 - w);  // keep long notes on-canvas
+      g.append(s("rect", { class: "note", x, y: y - 13, width: w, height: 24, rx: 6 }));
+      const t = s("text", { x: x + w / 2, y: y + 3 }); t.textContent = st.label; g.append(t);
+    } else {
+      const x1 = LX[st.from], x2 = LX[st.to], dir = x2 > x1 ? 1 : -1;
+      g.append(s("line", { x1: x1 + dir * 4, y1: y + 8, x2: x2 - dir * 4, y2: y + 8 }));
+      // Keep long labels inside the diagram instead of centring them off-canvas.
+      const w = st.label.length * 6.2, mid = (x1 + x2) / 2;
+      let tx = mid, anchor = "middle";
+      if (mid - w / 2 < 28) { tx = 28; anchor = "start"; }
+      else if (mid + w / 2 > 912) { tx = 912; anchor = "end"; }
+      const t = s("text", { x: tx, y: y + 1, style: `text-anchor:${anchor}` }); t.textContent = st.label; g.append(t);
+    }
+    svg.append(g);
+  });
+}
+function renderSeq() {
+  const steps = SCENARIOS[scen], st = steps[tcur];
+  steps.forEach((x, i) => {
+    const g = $(`m-${i}`);
+    g.classList.toggle("future", i > tcur);
+    g.classList.toggle("cur", i === tcur);
+    const line = g.querySelector("line");
+    if (line) line.setAttribute("marker-end", `url(#${i === tcur ? "sah" : x.bad ? "sab" : "sa"})`);
+  });
+  $("tTitle").textContent = `${tcur + 1}. ${st.title}`;
+  $("tText").textContent = st.text;
+  const code = $("tCode");
+  code.hidden = !st.code;
+  code.querySelector("code").textContent = st.code || "";
+  $("tCount").textContent = `${tcur + 1} / ${steps.length}`;
+  $("tPrev").disabled = tcur === 0;
+  $("tNext").disabled = tcur === steps.length - 1;
+}
+function tgo(d) { tcur = Math.max(0, Math.min(SCENARIOS[scen].length - 1, tcur + d)); renderSeq(); }
+function tstop() { clearInterval(ttimer); ttimer = null; $("tPlay").textContent = "▶ Play"; }
+$("tPrev").onclick = () => { tstop(); tgo(-1); };
+$("tNext").onclick = () => { tstop(); tgo(1); };
+$("tPlay").onclick = () => {
+  if (ttimer) return tstop();
+  if (tcur === SCENARIOS[scen].length - 1) tcur = 0;
+  $("tPlay").textContent = "❚❚ Pause";
+  renderSeq();
+  ttimer = setInterval(() => { if (tcur >= SCENARIOS[scen].length - 1) return tstop(); tgo(1); }, 2200);
+};
+document.querySelectorAll("#scen button").forEach(b => b.addEventListener("click", () => {
+  tstop();
+  document.querySelectorAll("#scen button").forEach(x => x.classList.toggle("on", x === b));
+  scen = b.dataset.s; tcur = 0; drawSeq(); renderSeq();
+}));
+
+drawSeq();
+renderSeq();
+drawGraph($("graph"), "", showInfo);
+drawGraph($("graph2"), "w-", null);
+showInfo("supervisor");
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "notes": "Each key_points entry is a group of acceptable phrasings (case-insensitive substrings); a group counts as covered if ANY phrasing appears in the final answer. kind=unanswerable: the right behaviour is to say the sources don't cover it, not to invent an answer.",
+  "cases": [
+    {
+      "id": "lambda-timeout",
+      "category": "factual",
+      "question": "What is the maximum execution timeout for an AWS Lambda function?",
+      "key_points": [["15 minutes", "900 seconds", "15-minute", "fifteen minutes"]],
+      "min_coverage": 1.0
+    },
+    {
+      "id": "mcp-purpose",
+      "category": "concept",
+      "question": "What does the Model Context Protocol (MCP) standardize for AI applications?",
+      "key_points": [["tool"], ["server"], ["client", "host"], ["open standard", "open protocol", "standard"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "langgraph-checkpointer",
+      "category": "concept",
+      "question": "What is a checkpointer used for in LangGraph?",
+      "key_points": [["persist", "save", "snapshot", "store"], ["thread"], ["resume", "human-in-the-loop", "time travel", "replay", "memory", "fault"]],
+      "min_coverage": 0.67
+    },
+    {
+      "id": "dynamodb-capacity",
+      "category": "comparison",
+      "question": "What is the difference between DynamoDB on-demand and provisioned capacity modes?",
+      "key_points": [["on-demand", "pay-per-request", "pay per request"], ["provisioned"], ["capacity unit", "rcu", "wcu", "read capacity", "write capacity"], ["auto scaling", "autoscaling", "predictable", "unpredictable"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "backoff-jitter",
+      "category": "concept",
+      "question": "How does exponential backoff with jitter help when calling rate-limited APIs?",
+      "key_points": [["exponential", "doubl"], ["jitter", "random"], ["thundering herd", "synchroniz", "synchronis", "simultaneous", "same time", "collision", "contention"]],
+      "min_coverage": 0.67
+    },
+    {
+      "id": "prompt-injection",
+      "category": "security",
+      "question": "What is prompt injection, and how can LLM applications reduce the risk?",
+      "key_points": [["untrusted", "malicious", "attacker"], ["instruction"], ["least privilege", "privilege", "permission", "sandbox", "human approval", "human-in-the-loop"], ["filter", "validat", "sanitiz", "sanitis", "separat", "delimit"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "rag-basics",
+      "category": "concept",
+      "question": "What is retrieval-augmented generation (RAG) and why is it used?",
+      "key_points": [["retriev"], ["generat"], ["vector", "embedding", "index", "knowledge base", "documents"], ["hallucinat", "up-to-date", "current", "grounded", "accurate", "private data", "domain"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "ssrf-metadata",
+      "category": "security",
+      "question": "What is SSRF, and why is the cloud metadata endpoint 169.254.169.254 a common target?",
+      "key_points": [["server-side request forgery", "server side request forgery"], ["169.254.169.254", "metadata"], ["credential", "iam", "token", "secret"], ["imdsv2", "session token", "egress", "allowlist", "allow-list", "block"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "step-functions-agents",
+      "category": "tradeoff",
+      "question": "When should you use AWS Step Functions to orchestrate long-running AI agent workflows instead of a single Lambda function?",
+      "key_points": [["15 minutes", "timeout", "long-running", "long running"], ["state", "durable", "checkpoint"], ["retr", "error handling"], ["cost", "pricing", "state transition"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "responses-vs-chat",
+      "category": "comparison",
+      "question": "What are the main differences between OpenAI's Responses API and the Chat Completions API?",
+      "key_points": [["responses api"], ["chat completions"], ["state", "previous_response_id", "conversation"], ["tool", "web search", "file search"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "token-cost",
+      "category": "concept",
+      "question": "How do input and output tokens affect the cost of LLM API calls?",
+      "key_points": [["input", "prompt"], ["output", "completion"], ["per million", "per 1m", "per 1,000", "per thousand", "price"], ["output tokens", "more expensive", "higher price", "costlier", "cost more"]],
+      "min_coverage": 0.75
+    },
+    {
+      "id": "future-event",
+      "category": "unanswerable",
+      "kind": "unanswerable",
+      "question": "What new services did AWS announce in the keynote at re:Invent 2031?",
+      "key_points": [],
+      "notes": "This event is in the future. A good system says the sources don't cover it instead of listing invented services."
+    }
+  ]
+}
